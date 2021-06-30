@@ -10,7 +10,7 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/executable.dart';
 import 'package:flutter_tools/src/windows/visual_studio.dart';
 import 'package:file/local.dart';
-import 'package:player/src/ffi.dart';
+import 'package:player/ffmpeg.dart';
 import 'package:process/process.dart';
 
 void main() {
@@ -70,7 +70,8 @@ void main() {
     final url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
     final ctx = FormatContext(protocol);
-    print(ctx.getStreams().length);
+    final streams = await ctx.getStreams();
+    print(streams.length);
   });
 }
 
@@ -84,25 +85,25 @@ class FileRequest extends ProtocolRequest {
   }
 
   @override
-  Future close() async {
+  Future closeImpl() async {
     await file.close();
     file = null;
   }
 
   @override
-  int read(Pointer<Uint8> buf, int size) {
-    final ret = file.readIntoSync(buf.asTypedList(size));
+  Future<int> read(Pointer<Uint8> buf, int size) async {
+    final ret = await file.readInto(buf.asTypedList(size));
     if (ret == 0) return -1;
     return ret;
   }
 
   @override
-  int seek(int offset, int whence) {
+  Future<int> seek(int offset, int whence) async {
     switch (whence) {
       case AVSEEK_SIZE:
-        return file.lengthSync();
+        return file.length();
       default:
-        file.setPositionSync(offset);
+        await file.setPosition(offset);
         return 0;
     }
   }

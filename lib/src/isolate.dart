@@ -91,7 +91,7 @@ dynamic _decodeData(data, decoders, {Map<dynamic, dynamic>? cache}) {
 }
 
 final _isolateDecoders = <_DecodeFunc>[
-  // FfmpegStream._decode,
+  FFMpegStream._decode,
   _IsolateFunction._decode,
   // Frame._decode,
   // Packet._decode,

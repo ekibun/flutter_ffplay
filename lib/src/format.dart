@@ -1,32 +1,5 @@
 part of '../ffmpeg.dart';
 
-class FfmpegStream implements _IsolateEncodable {
-  final int index;
-  Pointer<ffi.AVStream> _p;
-  FfmpegStream._new(this.index, this._p);
-
-  int _getFramePts(Pointer<ffi.AVFrame> frame) {
-    return getFrameTimeStamp(frame, _p);
-  }
-
-  int get codecType => _p.codecpar.codec_type;
-
-  @override
-  Map _encode() => {
-        #streamIndex: index,
-        #streamPtr: _p.address,
-      };
-
-  static FfmpegStream? _decode(Map data) {
-    if (data.containsKey(#streamPtr))
-      return FfmpegStream._new(
-        data[#streamIndex],
-        Pointer.fromAddress(data[#streamPtr]),
-      );
-    return null;
-  }
-}
-
 class FormatContext {
   Future<_IsolateFunction>? _isolate;
   final ProtocolRequest _req;
@@ -44,7 +17,7 @@ class FormatContext {
         #handle: _handleReaderIsolate,
         #request: _req._encode(),
       },
-      debugName: '_IsolateFormatContext',
+      debugName: 'FormatContext',
       errorsAreFatal: true,
     );
     _isolate = port.first.then((result) {
@@ -55,18 +28,17 @@ class FormatContext {
     });
   }
 
-  static ffi.FormatContext _initReaderIsolate(Map spawnMessage) {
+  static ffi.AVFormatContext _initReaderIsolate(Map spawnMessage) {
     final request = _decodeData(spawnMessage[#request], _isolateDecoders);
-    final ctx = ffi.FormatContext(request);
+    final ctx = ffi.AVFormatContext(request);
     return ctx;
   }
 
-  static _handleReaderIsolate(ffi.FormatContext ctx, dynamic msg) async {
+  static _handleReaderIsolate(ffi.AVFormatContext ctx, dynamic msg) async {
     switch (msg[#type]) {
-      case #getPacket:
-        return ctx.getPacket(List<FfmpegStream>.from(msg[#streams]));
       case #getStreams:
-        return ctx.getStreams();
+        int index = 0;
+        return ctx.getStreams().map((p) => FFMpegStream._(index++, p)).toList();
       case #getDuration:
         return ctx.getDuration();
       case #seekTo:
@@ -101,25 +73,17 @@ class FormatContext {
     });
   }
 
-  Future<List<FfmpegStream>> getStreams() async {
+  Future<List<FFMpegStream>> getStreams() async {
     _ensureIsolate();
-    return List<FfmpegStream>.from(await (await _isolate!)({
+    return List<FFMpegStream>.from(await (await _isolate!)({
       #type: #getStreams,
     }));
   }
 
-  Future<int> duration() async {
+  Future<int> getDuration() async {
     _ensureIsolate();
     return await (await _isolate!)({
-      #type: #duration,
-    });
-  }
-
-  Future<Packet?> getPacket(List<FfmpegStream> streams) async {
-    _ensureIsolate();
-    return await (await _isolate!)({
-      #type: #getPacket,
-      #streams: streams,
+      #type: #getDuration,
     });
   }
 
@@ -132,8 +96,7 @@ class FormatContext {
         #port: closePort.sendPort,
       });
       isolate.destroy();
-      _req?.close();
-      _req = null;
+      _req.close();
     });
     _isolate = null;
     return ret;
