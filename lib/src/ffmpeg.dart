@@ -21,7 +21,12 @@ class _PTS {
 
 class FFMpegContext extends FormatContext {
   final Playback _playback;
-  FFMpegContext(ProtocolRequest req, this._playback) : super(req);
+  final void Function(int?)? _onFrame;
+
+  FFMpegContext(ProtocolRequest req, this._playback,
+      {void Function(int?)? onFrame})
+      : _onFrame = onFrame,
+        super(req);
   _PTS? _pts;
   Future? _playingFuture;
 
@@ -33,13 +38,26 @@ class FFMpegContext extends FormatContext {
     return seekTo(0);
   }
 
+  Future waitToStop() async => _playingFuture;
+
   Future pause() {
     _pts?.playing = false;
+    _playback.stop();
     return Future.value(_playingFuture);
   }
 
   final _codecs = <int, CodecContext>{};
   final _frames = <int, List<FFMpegFrame>>{};
+
+  @override
+  Future close() async {
+    await pause();
+    await super.close();
+    _playback.close();
+    final codecFinals = _codecs.values.map((codec) => codec.close());
+    _codecs.clear();
+    return Future.wait(codecFinals);
+  }
 
   @override
   Future seekTo(
@@ -73,9 +91,11 @@ class FFMpegContext extends FormatContext {
     );
     // seek to next frame
     if (pts.streams[ffi.AVMediaType.VIDEO] != null) {
-      Completer ret = Completer();
+      Completer<bool> ret = Completer();
       _playingFuture = _resume(ret);
-      return ret.future;
+      return ret.future.then((hitframe) {
+        if (hitframe && !pauseAtSeekTo) pause();
+      });
     } else if (pauseAtSeekTo) {
       _playingFuture = resume();
     }
@@ -83,13 +103,14 @@ class FFMpegContext extends FormatContext {
 
   Future resume() => _resume(null);
 
-  Future _resume(Completer? onNextFrame) async {
+  Future _resume(Completer<bool>? onNextFrame) async {
     final pts = _pts!;
     final _isPlaying = () {
       return (_pts == pts) && pts.playing;
     };
     try {
       pts.playing = true;
+      _playback.start();
       final streams = pts.streams.values.toList();
       pts.streams.forEach((codecType, stream) async {
         Future? lastUpdate;
@@ -120,9 +141,10 @@ class FFMpegContext extends FormatContext {
             if (!_isPlaying()) return;
             if (timestamp >= 0) pts.update(timestamp);
             if (codecType == ffi.AVMediaType.VIDEO &&
-                onNextFrame?.isCompleted == false) onNextFrame?.complete();
+                onNextFrame?.isCompleted == false) onNextFrame?.complete(true);
             _frames.remove(frame);
             frame._close();
+            _onFrame?.call(pts.ptsNow());
           })();
           await Future.value(_lastUpdate);
         }
@@ -157,8 +179,8 @@ class FFMpegContext extends FormatContext {
         });
       }
     } finally {
-      // _onFrame?.call(null);
-      if (onNextFrame?.isCompleted == false) onNextFrame?.complete();
+      _onFrame?.call(null);
+      if (onNextFrame?.isCompleted == false) onNextFrame?.complete(false);
       pts.playing = false;
     }
   }

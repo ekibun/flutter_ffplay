@@ -67,7 +67,7 @@ class CodecContext {
     });
   }
 
-  close() async {
+  Future close() async {
     if (_isolate == null) return;
     final ret = _isolate?.then((isolate) async {
       final closePort = ReceivePort();

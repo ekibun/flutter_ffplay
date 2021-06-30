@@ -1,39 +1,45 @@
 part of '../ffmpeg.dart';
 
+final MethodChannel _channel = const MethodChannel('player');
+
 class Playback {
-  Pointer<ffi.AudioClient>? __audio;
-  Pointer<ffi.AudioClient> get audio =>
-      __audio ??= ffi.PointerAudioClient.create()..start();
+  Pointer<ffi.PlaybackClient>? _playback;
+  final int textureId;
+
+  Playback(this.textureId);
+
+  static Future<Playback> create() async {
+    final int ptr = await _channel.invokeMethod('createPlayback');
+    final int textureId = await _channel.invokeMethod('getTextureId', ptr);
+    return Playback(textureId).._playback = Pointer.fromAddress(ptr);
+  }
+
   void _postFrame(int codecType, FFMpegFrame frame) async {
-    switch (codecType) {
-      case ffi.AVMediaType.AUDIO:
-        audio.postFrame(frame._p!);
-        break;
-      case ffi.AVMediaType.VIDEO:
-        break;
-    }
+    _playback?.postFrame(codecType, frame._p!);
   }
 
   Future<int> _flushFrame(int codecType, FFMpegFrame frame) async {
     switch (codecType) {
       case ffi.AVMediaType.AUDIO:
-        return frame._pts - (await audio.flushBuffer());
+        final offset = await _playback?.flushAudioBuffer();
+        return offset != null ? frame._pts - offset : -1;
       case ffi.AVMediaType.VIDEO:
+        _playback?.flushVideoBuffer();
         return -1;
     }
     throw UnsupportedError('unsupported codec type $codecType');
   }
 
   void start() {
-    __audio?.start();
+    _playback?.start();
   }
 
   void stop() {
-    __audio?.stop();
+    _playback?.stop();
   }
 
-  void close() {
-    __audio?.close();
-    __audio = null;
+  void close() async {
+    _playback?.close();
+    _playback = null;
   }
 }

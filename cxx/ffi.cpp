@@ -1,20 +1,3 @@
-#ifdef _MSC_VER
-#define DLLEXPORT __declspec(dllexport)
-#else
-#define DLLEXPORT __attribute__((visibility("default"))) __attribute__((used))
-#endif
-
-#include "string"
-#include "list"
-
-#include <mmdeviceapi.h>
-#include <audiopolicy.h>
-
-const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
-const IID IID_IAudioClient = __uuidof(IAudioClient);
-const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
-
 #define DEFINE_CLASS_GET_PROP(class, prop) \
   DLLEXPORT int64_t class##_get_##prop(class *p) { return (int64_t)p->prop; }
 
@@ -24,238 +7,32 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 #define DEFINE_CLASS_METHOD_VOID(class, method) \
   DLLEXPORT int64_t class##_##method(class *p) { return p->method(), 0; }
 
+#include "ffi.h"
+
 extern "C"
 {
-#include "libavformat/avformat.h"
-#include "libavcodec/avcodec.h"
-#include "libswresample/swresample.h"
 
-  class AudioClient
-  {
-  public:
-    SwrContext *_swrCtx = 0;
-    int64_t _srcChannelLayout;
-    int64_t _srcFormat;
-    int64_t _srcSampleRate;
-    uint8_t *_buffer = nullptr;
-    uint8_t *_buffer1 = nullptr;
-    unsigned int _bufferLen = 0;
-    unsigned int _bufferLen1 = 0;
-    int _nbSamples = 0;
-    int64_t _offset = 0;
-
-    int sampleRate;
-    int channels;
-    AVSampleFormat format = AV_SAMPLE_FMT_NONE;
-    uint32_t bufferFrameCount;
-
-    virtual uint32_t getCurrentPadding() = 0;
-    virtual int writeBuffer(uint8_t *data, int64_t length) = 0;
-    virtual void start() = 0;
-    virtual void stop() = 0;
-    virtual void close() = 0;
-  };
-
-  class AudioClientImpl : public AudioClient
-  {
-    IMMDeviceEnumerator *pEnumerator = nullptr;
-    IMMDevice *pDevice = nullptr;
-    IAudioClient *pAudioClient = nullptr;
-    WAVEFORMATEX *pwfx = nullptr;
-    IAudioRenderClient *pRenderClient = nullptr;
-
-    static AVSampleFormat getSampleFormat(WAVEFORMATEX *wave_format)
-    {
-      switch (wave_format->wFormatTag)
-      {
-      case WAVE_FORMAT_PCM:
-        if (16 == wave_format->wBitsPerSample)
-        {
-          return AV_SAMPLE_FMT_S16;
-        }
-        if (32 == wave_format->wBitsPerSample)
-        {
-          return AV_SAMPLE_FMT_S32;
-        }
-        break;
-      case WAVE_FORMAT_IEEE_FLOAT:
-        return AV_SAMPLE_FMT_FLT;
-      case WAVE_FORMAT_ALAW:
-      case WAVE_FORMAT_MULAW:
-        return AV_SAMPLE_FMT_U8;
-      case WAVE_FORMAT_EXTENSIBLE:
-      {
-        const WAVEFORMATEXTENSIBLE *wfe = reinterpret_cast<const WAVEFORMATEXTENSIBLE *>(wave_format);
-        if (KSDATAFORMAT_SUBTYPE_IEEE_FLOAT == wfe->SubFormat)
-        {
-          return AV_SAMPLE_FMT_FLT;
-        }
-        if (KSDATAFORMAT_SUBTYPE_PCM == wfe->SubFormat)
-        {
-          if (16 == wave_format->wBitsPerSample)
-          {
-            return AV_SAMPLE_FMT_S16;
-          }
-          if (32 == wave_format->wBitsPerSample)
-          {
-            return AV_SAMPLE_FMT_S32;
-          }
-        }
-        break;
-      }
-      default:
-        break;
-      }
-      return AV_SAMPLE_FMT_NONE;
-    }
-
-  public:
-    int64_t getSampleRate()
-    {
-      return pwfx->nSamplesPerSec;
-    }
-    virtual int64_t getChannels()
-    {
-      return pwfx->nChannels;
-    }
-    AVSampleFormat getFormat()
-    {
-      return format;
-    }
-    virtual int64_t getBufferFrameCount()
-    {
-      return bufferFrameCount;
-    }
-
-    virtual uint32_t getCurrentPadding()
-    {
-      uint32_t numFramesPadding = 0;
-      if (pAudioClient)
-        pAudioClient->GetCurrentPadding(&numFramesPadding);
-      return numFramesPadding;
-    }
-    int writeBuffer(uint8_t *data, int64_t length)
-    {
-      if (!pRenderClient)
-        return -1;
-      int requestBuffer = min(bufferFrameCount - getCurrentPadding(), length);
-      uint8_t *buffer;
-      pRenderClient->GetBuffer(requestBuffer, &buffer);
-      if (!buffer)
-        return -1;
-      int count = requestBuffer * av_get_bytes_per_sample(format) * channels;
-      memcpy_s(buffer, count, data, count);
-      if (pRenderClient->ReleaseBuffer(requestBuffer, 0) < 0)
-        return -1;
-      return requestBuffer;
-    }
-    void start()
-    {
-      if (!pAudioClient)
-        return;
-      pAudioClient->Start();
-    }
-    void stop()
-    {
-      if (!pAudioClient)
-        return;
-      pAudioClient->Stop();
-    }
-    void close()
-    {
-      if (pwfx)
-        CoTaskMemFree(pwfx);
-      pwfx = nullptr;
-      if (pRenderClient)
-        pRenderClient->Release();
-      pRenderClient = nullptr;
-      if (pAudioClient)
-        pAudioClient->Release();
-      pAudioClient = nullptr;
-      if (pDevice)
-        pDevice->Release();
-      pDevice = nullptr;
-      if (pEnumerator)
-        pEnumerator->Release();
-      pEnumerator = nullptr;
-    }
-
-    AudioClientImpl()
-    {
-      try
-      {
-        CoInitialize(NULL);
-        CoCreateInstance(
-            CLSID_MMDeviceEnumerator, NULL,
-            CLSCTX_ALL, IID_IMMDeviceEnumerator,
-            (void **)&pEnumerator);
-        if (!pEnumerator)
-          throw std::exception("Create IMMDeviceEnumerator failed");
-        pEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &pDevice);
-        if (!pDevice)
-          throw std::exception("IMMDeviceEnumerator GetDefaultAudioEndpoint failed");
-        pDevice->Activate(
-            IID_IAudioClient, CLSCTX_ALL,
-            NULL, (void **)&pAudioClient);
-        if (!pAudioClient)
-          throw std::exception("IMMDevice Activate failed");
-        pAudioClient->GetMixFormat(&pwfx);
-        if (!pwfx)
-          throw std::exception("IAudioClient GetMixFormat failed");
-        sampleRate = pwfx->nSamplesPerSec;
-        channels = pwfx->nChannels;
-        format = getSampleFormat(pwfx);
-        if (pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 10000000, 0, pwfx, NULL) < 0)
-          throw std::exception("IAudioClient Initialize failed");
-        pAudioClient->GetBufferSize(&bufferFrameCount);
-        if (bufferFrameCount <= 0)
-          throw std::exception("IAudioClient GetBufferSize failed");
-        pAudioClient->GetService(
-            IID_IAudioRenderClient,
-            (void **)&pRenderClient);
-        if (!pAudioClient)
-          throw std::exception("IAudioClient GetService failed");
-      }
-      catch (std::exception &e)
-      {
-        close();
-        throw e;
-      }
-    }
-  };
-
-  DLLEXPORT int64_t AudioClient_get_bufferDuration(AudioClient *audio)
+  DLLEXPORT int64_t PlaybackClient_get_audioBufferDuration(PlaybackClient *audio)
   {
     return audio->bufferFrameCount * 1000 / audio->sampleRate;
   }
 
-  DLLEXPORT int64_t AudioClient_flushBuffer(AudioClient *audio)
+  DLLEXPORT int64_t PlaybackClient_flushAudioBuffer(PlaybackClient *audio)
   {
     int offset = audio->writeBuffer(
-        audio->_buffer1 + audio->_offset, audio->_nbSamples - audio->_offset);
+        audio->_audioBuffer1 + audio->audioOffset, audio->_nbSamples - audio->audioOffset);
     if (offset < 0)
       return 0;
-    audio->_offset += offset;
-    if (audio->_offset < audio->_nbSamples)
-      return audio->_offset - audio->_nbSamples;
+    audio->audioOffset += offset;
+    if (audio->audioOffset < audio->_nbSamples)
+      return audio->audioOffset - audio->_nbSamples;
     return audio->getCurrentPadding() * AV_TIME_BASE / audio->sampleRate + 1;
   }
 
-  DLLEXPORT AudioClient *AudioClient_create()
-  {
-    try
-    {
-      return new AudioClientImpl();
-    }
-    catch (std::exception &)
-    {
-      return nullptr;
-    }
-  }
-
-  DEFINE_CLASS_METHOD_VOID(AudioClient, start)
-  DEFINE_CLASS_METHOD_VOID(AudioClient, stop)
-  DEFINE_CLASS_METHOD_VOID(AudioClient, close)
+  DEFINE_CLASS_METHOD_VOID(PlaybackClient, flushVideoBuffer)
+  DEFINE_CLASS_METHOD_VOID(PlaybackClient, start)
+  DEFINE_CLASS_METHOD_VOID(PlaybackClient, stop)
+  DEFINE_CLASS_METHOD_VOID(PlaybackClient, close)
 
   DEFINE_CLASS_GET_PROP(AVPacket, stream_index)
 
@@ -269,9 +46,9 @@ extern "C"
     av_frame_free(&frame);
   }
 
-  DLLEXPORT int64_t AudioClient_postFrame(AudioClient *audio, AVFrame *frame)
+  int64_t AudioClient_postFrame(PlaybackClient *audio, AVFrame *frame)
   {
-    if (!audio->_swrCtx || audio->_srcChannelLayout != frame->channel_layout || audio->_srcFormat != frame->format || audio->_srcSampleRate != frame->sample_rate)
+    if (!audio->_swrCtx || audio->_srcChannelLayout != frame->channel_layout || audio->_srcAudioFormat != frame->format || audio->_srcSampleRate != frame->sample_rate)
     {
       if (audio->_swrCtx)
         swr_free(&audio->_swrCtx);
@@ -286,7 +63,7 @@ extern "C"
       if (!audio->_swrCtx || swr_init(audio->_swrCtx) < 0)
         return -1;
       audio->_srcChannelLayout = frame->channel_layout;
-      audio->_srcFormat = frame->format;
+      audio->_srcAudioFormat = (AVSampleFormat)frame->format;
       audio->_srcSampleRate = frame->sample_rate;
     }
     int inCount = frame->nb_samples;
@@ -294,18 +71,63 @@ extern "C"
     int outSize = av_samples_get_buffer_size(nullptr, audio->channels, outCount, audio->format, 0);
     if (outSize < 0)
       return -2;
-    av_fast_malloc(&audio->_buffer, &audio->_bufferLen, outSize);
-    if (!audio->_buffer)
+    av_fast_malloc(&audio->_audioBuffer, &audio->_audioBufferLen, outSize);
+    if (!audio->_audioBuffer)
       return -3;
     audio->_nbSamples =
-        swr_convert(audio->_swrCtx, &audio->_buffer, outCount, (const uint8_t **)frame->extended_data, inCount);
-    uint8_t *buffer = audio->_buffer;
-    unsigned int bufferLen = audio->_bufferLen;
-    audio->_buffer = audio->_buffer1;
-    audio->_bufferLen = audio->_bufferLen1;
-    audio->_buffer1 = buffer;
-    audio->_bufferLen1 = bufferLen;
-    audio->_offset = 0;
+        swr_convert(audio->_swrCtx, &audio->_audioBuffer, outCount, (const uint8_t **)frame->extended_data, inCount);
+    uint8_t *buffer = audio->_audioBuffer;
+    unsigned int bufferLen = audio->_audioBufferLen;
+    audio->_audioBuffer = audio->_audioBuffer1;
+    audio->_audioBufferLen = audio->_audioBufferLen1;
+    audio->_audioBuffer1 = buffer;
+    audio->_audioBufferLen1 = bufferLen;
+    audio->audioOffset = 0;
+    return 0;
+  }
+
+  DLLEXPORT int64_t PlaybackClient_postFrame(int64_t type, PlaybackClient *playback, AVFrame *frame)
+  {
+    if (type == AVMEDIA_TYPE_AUDIO)
+      return AudioClient_postFrame(playback, frame);
+    if (!playback->_swsCtx || playback->width != frame->width || playback->height != frame->height || playback->_srcVideoFormat != frame->format)
+    {
+      if (playback->_swsCtx)
+        sws_freeContext(playback->_swsCtx);
+      playback->_swsCtx = nullptr;
+      int bufSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, frame->width, frame->height, 1);
+      playback->width = frame->width;
+      playback->height = frame->height;
+      av_fast_malloc(&playback->_videoBuffer, &playback->_videoBufferLen, bufSize);
+      if (!playback->_videoBuffer)
+        return -1;
+      av_image_fill_arrays(
+          playback->videoData,
+          playback->linesize,
+          playback->_videoBuffer,
+          AV_PIX_FMT_RGBA,
+          playback->width,
+          playback->height, 1);
+      playback->_swsCtx = sws_getContext(
+          frame->width,
+          frame->height,
+          (AVPixelFormat)frame->format,
+          playback->width,
+          playback->height,
+          AV_PIX_FMT_RGBA,
+          SWS_POINT,
+          nullptr, nullptr, nullptr);
+    }
+    if (!playback->_swsCtx)
+      return -1;
+    sws_scale(
+        playback->_swsCtx,
+        frame->data,
+        frame->linesize,
+        0,
+        frame->height,
+        playback->videoData,
+        playback->linesize);
     return 0;
   }
 

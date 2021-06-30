@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tools/src/base/io.dart';
 import 'package:flutter_tools/src/base/terminal.dart';
@@ -13,7 +14,25 @@ import 'package:file/local.dart';
 import 'package:player/ffmpeg.dart';
 import 'package:process/process.dart';
 
+import 'mock.dart';
+
 void main() {
+  const MethodChannel channel = MethodChannel('player');
+
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    channel.setMockMethodCallHandler((MethodCall methodCall) async {
+      if (methodCall.method == 'createPlayback') {
+        return createMockPlayback().address;
+      }
+      return 0;
+    });
+  });
+
+  tearDown(() {
+    channel.setMockMethodCallHandler(null);
+  });
   test('make', () async {
     final platform = LocalPlatform();
     final utf8Encoding = Encoding.getByName('utf-8');
@@ -69,7 +88,7 @@ void main() {
   test('get stream info', () async {
     final url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
-    final ctx = FFMpegContext(protocol, Playback());
+    final ctx = FFMpegContext(protocol, await Playback.create());
     final streams = await ctx.getStreams();
     await ctx
         .play(streams.where((s) => s.codecType == AVMediaType.AUDIO).toList());
