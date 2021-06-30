@@ -28,14 +28,28 @@ class FormatContext {
     });
   }
 
-  static ffi.AVFormatContext _initReaderIsolate(Map spawnMessage) {
+  static ffi.FormatContext _initReaderIsolate(Map spawnMessage) {
     final request = _decodeData(spawnMessage[#request], _isolateDecoders);
-    final ctx = ffi.AVFormatContext(request);
+    final ctx = ffi.FormatContext(request);
     return ctx;
   }
 
-  static _handleReaderIsolate(ffi.AVFormatContext ctx, dynamic msg) async {
+  static _handleReaderIsolate(ffi.FormatContext ctx, dynamic msg) async {
     switch (msg[#type]) {
+      case #getPacket:
+        final streams = List<FFMpegStream>.from(msg[#streams]);
+        var packet = malloc<Pointer<ffi.AVPacket>>();
+        packet.value = Pointer.fromAddress(0);
+        var packetAddr = 0;
+        while (ctx.getPacket(packet) == 0) {
+          final streamIndex = packet.value.streamIndex;
+          final stream = streams.indexWhere((s) => s.index == streamIndex);
+          if (stream < 0) continue;
+          packetAddr = packet.value.address;
+          break;
+        }
+        malloc.free(packet);
+        return packetAddr;
       case #getStreams:
         int index = 0;
         return ctx.getStreams().map((p) => FFMpegStream._(index++, p)).toList();
@@ -85,6 +99,14 @@ class FormatContext {
     return await (await _isolate!)({
       #type: #getDuration,
     });
+  }
+
+  Future<Pointer<ffi.AVPacket>> getPacket(List<FFMpegStream> streams) async {
+    _ensureIsolate();
+    return await (await _isolate!)({
+      #type: #getPacket,
+      #streams: streams,
+    }).then((ptr) => Pointer.fromAddress(ptr));
   }
 
   close() async {

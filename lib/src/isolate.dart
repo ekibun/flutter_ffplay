@@ -60,6 +60,7 @@ dynamic _encodeData(data, {Map<dynamic, dynamic>? cache}) {
     }
     return ret;
   }
+  if (data is Pointer) return data.address;
   return data;
 }
 
@@ -93,8 +94,6 @@ dynamic _decodeData(data, decoders, {Map<dynamic, dynamic>? cache}) {
 final _isolateDecoders = <_DecodeFunc>[
   FFMpegStream._decode,
   _IsolateFunction._decode,
-  // Frame._decode,
-  // Packet._decode,
   IsolateError._decode,
   ProtocolRequest._decode,
 ];
@@ -214,7 +213,7 @@ class _IsolateFunction implements _IsolateEncodable {
       },
       #ptr: ptr.address,
     });
-    while (ptr.value == ptr.address) sleep(Duration(milliseconds: 1));
+    while (ptr.value == ptr.address) sleep(Duration(milliseconds: 10));
     final ret = ptr.value;
     malloc.free(ptr);
     return ret;

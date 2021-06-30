@@ -1,7 +1,7 @@
 part of '../ffmpeg.dart';
 
 class CodecContext {
-  final Pointer<ffi.AVStream> _stream;
+  final FFMpegStream _stream;
   Future<_IsolateFunction>? _isolate;
 
   CodecContext(this._stream);
@@ -15,7 +15,7 @@ class CodecContext {
         #port: port.sendPort,
         #init: _initCodecIsolate,
         #handle: _handleCodecIsolate,
-        #stream: _stream.address,
+        #stream: _stream._p.address,
       },
       debugName: '_IsolateCodecContext',
       errorsAreFatal: true,
@@ -28,12 +28,12 @@ class CodecContext {
     });
   }
 
-  static ffi.AVCodecContext _initCodecIsolate(Map spawnMessage) {
+  static ffi.CodecContext _initCodecIsolate(Map spawnMessage) {
     final stream = Pointer<ffi.AVStream>.fromAddress(spawnMessage[#stream]);
-    return ffi.AVCodecContext(stream);
+    return ffi.CodecContext(stream);
   }
 
-  static _handleCodecIsolate(ffi.AVCodecContext ctx, dynamic msg) async {
+  static _handleCodecIsolate(ffi.CodecContext ctx, dynamic msg) async {
     switch (msg[#type]) {
       case #sendPacketAndGetFrame:
         return ctx
@@ -50,13 +50,14 @@ class CodecContext {
     }
   }
 
-  Future<Pointer<ffi.AVFrame>> sendPacketAndGetFrame(
+  Future<FFMpegFrame?> sendPacketAndGetFrame(
       Pointer<ffi.AVPacket> packet) async {
     _ensureIsolate();
     return await (await _isolate!)({
       #type: #sendPacketAndGetFrame,
-      #packet: packet,
-    }).then((addr) => Pointer.fromAddress(addr));
+      #packet: packet.address,
+    }).then(
+        (addr) => addr == 0 ? null : FFMpegFrame._(Pointer.fromAddress(addr)));
   }
 
   Future<void> flush() async {

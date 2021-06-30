@@ -69,9 +69,13 @@ void main() {
   test('get stream info', () async {
     final url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
-    final ctx = FormatContext(protocol);
+    final ctx = FFMpegContext(protocol, Playback());
     final streams = await ctx.getStreams();
-    print(streams.length);
+    await ctx
+        .play(streams.where((s) => s.codecType == AVMediaType.AUDIO).toList());
+    await Future.delayed(Duration(seconds: 5));
+    await ctx.seekTo(30 * AV_TIME_BASE);
+    await Future.delayed(Duration(seconds: 30));
   });
 }
 

@@ -5,7 +5,7 @@ class FFMpegStream implements _IsolateEncodable {
   Pointer<ffi.AVStream> _p;
   FFMpegStream._(this.index, this._p);
 
-  int get codecType => _p.getCodecType();
+  int get codecType => _p.codecType;
 
   @override
   Map _encode() => {

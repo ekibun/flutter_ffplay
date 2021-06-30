@@ -15,6 +15,15 @@ const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
+#define DEFINE_CLASS_GET_PROP(class, prop) \
+  DLLEXPORT int64_t class##_get_##prop(class *p) { return (int64_t)p->prop; }
+
+#define DEFINE_CLASS_METHOD(class, method) \
+  DLLEXPORT int64_t class##_##method(class *p) { return (int64_t)p->method(); }
+
+#define DEFINE_CLASS_METHOD_VOID(class, method) \
+  DLLEXPORT int64_t class##_##method(class *p) { return p->method(), 0; }
+
 extern "C"
 {
 #include "libavformat/avformat.h"
@@ -40,11 +49,11 @@ extern "C"
     AVSampleFormat format = AV_SAMPLE_FMT_NONE;
     uint32_t bufferFrameCount;
 
-    virtual uint32_t getCurrentPadding();
-    virtual int writeBuffer(uint8_t *data, int64_t length);
-    virtual void start();
-    virtual void stop();
-    virtual void close();
+    virtual uint32_t getCurrentPadding() = 0;
+    virtual int writeBuffer(uint8_t *data, int64_t length) = 0;
+    virtual void start() = 0;
+    virtual void stop() = 0;
+    virtual void close() = 0;
   };
 
   class AudioClientImpl : public AudioClient
@@ -134,8 +143,8 @@ extern "C"
       pRenderClient->GetBuffer(requestBuffer, &buffer);
       if (!buffer)
         return -1;
-      memcpy_s(buffer, requestBuffer, data,
-               requestBuffer * av_get_bytes_per_sample(format) * channels);
+      int count = requestBuffer * av_get_bytes_per_sample(format) * channels;
+      memcpy_s(buffer, count, data, count);
       if (pRenderClient->ReleaseBuffer(requestBuffer, 0) < 0)
         return -1;
       return requestBuffer;
@@ -215,7 +224,7 @@ extern "C"
     }
   };
 
-  DLLEXPORT int64_t AudioClient_getBufferDuration(AudioClient *audio)
+  DLLEXPORT int64_t AudioClient_get_bufferDuration(AudioClient *audio)
   {
     return audio->bufferFrameCount * 1000 / audio->sampleRate;
   }
@@ -229,7 +238,7 @@ extern "C"
     audio->_offset += offset;
     if (audio->_offset < audio->_nbSamples)
       return audio->_offset - audio->_nbSamples;
-    return audio->getCurrentPadding() + 1;
+    return audio->getCurrentPadding() * AV_TIME_BASE / audio->sampleRate + 1;
   }
 
   DLLEXPORT AudioClient *AudioClient_create()
@@ -244,22 +253,23 @@ extern "C"
     }
   }
 
-  DLLEXPORT void AudioClient_start(AudioClient *audio)
+  DEFINE_CLASS_METHOD_VOID(AudioClient, start)
+  DEFINE_CLASS_METHOD_VOID(AudioClient, stop)
+  DEFINE_CLASS_METHOD_VOID(AudioClient, close)
+
+  DEFINE_CLASS_GET_PROP(AVPacket, stream_index)
+
+  DLLEXPORT void AVPacket_close(AVPacket *packet)
   {
-    audio->start();
+    av_packet_free(&packet);
   }
 
-  DLLEXPORT void AudioClient_stop(AudioClient *audio)
+  DLLEXPORT void AVFrame_close(AVFrame *frame)
   {
-    audio->stop();
+    av_frame_free(&frame);
   }
 
-  DLLEXPORT void AudioClient_close(AudioClient *audio)
-  {
-    audio->close();
-  }
-
-  DLLEXPORT int64_t AVFrame_playAudio(AudioClient *audio, AVFrame *frame)
+  DLLEXPORT int64_t AudioClient_postFrame(AudioClient *audio, AVFrame *frame)
   {
     if (!audio->_swrCtx || audio->_srcChannelLayout != frame->channel_layout || audio->_srcFormat != frame->format || audio->_srcSampleRate != frame->sample_rate)
     {
@@ -284,31 +294,36 @@ extern "C"
     int outSize = av_samples_get_buffer_size(nullptr, audio->channels, outCount, audio->format, 0);
     if (outSize < 0)
       return -2;
-    av_fast_malloc(audio->_buffer, &audio->_bufferLen, outSize);
+    av_fast_malloc(&audio->_buffer, &audio->_bufferLen, outSize);
     if (!audio->_buffer)
       return -3;
     audio->_nbSamples =
-        swr_convert(audio->_swrCtx, &audio->_buffer, outCount, frame->extended_data, inCount);
+        swr_convert(audio->_swrCtx, &audio->_buffer, outCount, (const uint8_t **)frame->extended_data, inCount);
     uint8_t *buffer = audio->_buffer;
     unsigned int bufferLen = audio->_bufferLen;
     audio->_buffer = audio->_buffer1;
     audio->_bufferLen = audio->_bufferLen1;
-    audio->_buffer1 = audio->_buffer;
-    audio->_bufferLen1 = audio->_bufferLen;
+    audio->_buffer1 = buffer;
+    audio->_bufferLen1 = bufferLen;
     audio->_offset = 0;
     return 0;
   }
 
-  DLLEXPORT int64_t AVStream_getCodecType(AVStream *stream)
+  DLLEXPORT int64_t AVStream_get_codecType(AVStream *stream)
   {
     return stream->codecpar->codec_type;
   }
 
-  DLLEXPORT AVCodecContext *AVCodecContext_create(AVStream *stream)
+  DLLEXPORT int64_t AVStream_getFramePts(AVStream *stream, AVFrame *frame)
+  {
+    return frame->best_effort_timestamp * av_q2d(stream->time_base) * AV_TIME_BASE;
+  }
+
+  DLLEXPORT AVCodecContext *AVStream_createCodec(AVStream *stream)
   {
     auto pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!pCodec)
-      throw std::exception("avcodec_find_decoder failed");
+      return nullptr;
     AVCodecContext *ctx = avcodec_alloc_context3(pCodec);
     ctx->opaque = nullptr;
     int ret = avcodec_parameters_to_context(ctx, stream->codecpar);
@@ -373,10 +388,8 @@ extern "C"
     avformat_close_input(&ctx);
   }
 
-  DLLEXPORT int64_t AVFormatContext_getDuration(AVFormatContext *ctx)
-  {
-    return ctx->duration;
-  }
+  DEFINE_CLASS_GET_PROP(AVFormatContext, duration)
+  DEFINE_CLASS_GET_PROP(AVFormatContext, streams)
 
   DLLEXPORT int64_t AVFormatContext_seekTo(
       AVFormatContext *ctx,
@@ -389,24 +402,19 @@ extern "C"
     return avformat_seek_file(ctx, stream_index, min_ts, ts, max_ts, flags);
   }
 
-  DLLEXPORT AVPacket *AVFormatContext_getPacket(AVFormatContext *ctx, AVPacket *packet)
+  DLLEXPORT int64_t AVFormatContext_getPacket(AVFormatContext *ctx, AVPacket **packet)
   {
-    AVPacket *_packet = packet ? packet : av_packet_alloc();
-    if (av_read_frame(ctx, _packet) == 0)
-      return _packet;
-    av_packet_free(&_packet);
-    return nullptr;
+    *packet = *packet ? *packet : av_packet_alloc();
+    int ret = av_read_frame(ctx, *packet);
+    if (ret)
+      av_packet_free(packet);
+    return ret;
   }
 
-  DLLEXPORT int64_t AVFormatContext_findStreamsCount(AVFormatContext *ctx)
+  DLLEXPORT int64_t AVFormatContext_findStreamCount(AVFormatContext *ctx)
   {
     if (avformat_find_stream_info(ctx, nullptr) != 0)
       return -1;
     return ctx->nb_streams;
-  }
-
-  DLLEXPORT AVStream **AVFormatContext_getStreams(AVFormatContext *ctx)
-  {
-    return ctx->streams;
   }
 }

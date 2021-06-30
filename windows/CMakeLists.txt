@@ -7,9 +7,15 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 set(PLUGIN_NAME "player_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
+  "${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffi.cpp"
   "player_plugin.cpp"
 )
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffmpeg.cmake")
+
 apply_standard_settings(${PLUGIN_NAME})
+target_compile_options(${PLUGIN_NAME} PRIVATE /WX-)
+
 set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden)
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
