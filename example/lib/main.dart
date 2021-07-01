@@ -15,7 +15,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   TextEditingController _controller = TextEditingController(
-    text: 'D:/Downloads/System/trailer.mp4',
+    text: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
@@ -60,7 +60,7 @@ class _MyAppState extends State<MyApp> {
                     await ctx?.close();
                   }
                   final url = _controller.text;
-                  final request = await FileRequest.open(url);
+                  final request = HttpProtocolRequest(Uri.parse(url));
                   final playback = _playback ??= await Playback.create();
                   final ctx = _ctx = FFMpegContext(
                     request,

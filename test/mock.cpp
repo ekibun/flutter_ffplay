@@ -1,4 +1,6 @@
-#include "../cxx/windows.hpp"
+#ifdef _MSC_VER
+#include "../windows/audio.hpp"
+#endif
 
 class PlaybackClientImpl : public AudioClientImpl
 {

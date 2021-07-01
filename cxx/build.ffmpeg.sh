@@ -7,6 +7,7 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 abi="$1_$2"
 
+makedir=$DIR/build/.make/$abi
 builddir=$DIR/build/$abi
 
 CONFIG_ARGS=(
@@ -84,7 +85,7 @@ case $1 in
       --cc=$CC_PREFIX-clang
       --cxx=$CC_PREFIX-clang++
       --cross-prefix=$TOOLCHAIN/bin/$HOST-
-      --extra-ldflags="-rpath-link=$ARCH_ROOT/usr/lib"
+      --extra-ldflags="-Wl,-rpath-link=$ARCH_ROOT/usr/lib"
     )
     ;;
   *)
@@ -94,8 +95,6 @@ esac
 echo "build ffmpeg for $abi"
 
 echo CONFIG_ARGS="${CONFIG_ARGS[@]}"
-
-makedir=$DIR/build/.make/$abi
 
 if [ -d $makedir ]; then
   rm -r $makedir

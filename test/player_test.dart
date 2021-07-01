@@ -1,6 +1,5 @@
 // @dart=2.9
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -14,6 +13,7 @@ import 'package:file/local.dart';
 import 'package:player/ffmpeg.dart';
 import 'package:process/process.dart';
 
+import '../example/lib/protocol.dart';
 import 'mock.dart';
 
 void main() {
@@ -84,50 +84,18 @@ void main() {
     stdout.write(result.stdout);
     stderr.write(result.stderr);
     expect(result.exitCode, 0);
-  });
+  }, skip: true);
+
   test('get stream info', () async {
     final url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
     final ctx = FFMpegContext(protocol, await Playback.create());
     final streams = await ctx.getStreams();
+    print(streams);
     await ctx
         .play(streams.where((s) => s.codecType == AVMediaType.AUDIO).toList());
     await Future.delayed(Duration(seconds: 5));
     await ctx.seekTo(30 * AV_TIME_BASE);
     await Future.delayed(Duration(seconds: 30));
   });
-}
-
-class FileRequest extends ProtocolRequest {
-  RandomAccessFile file;
-
-  FileRequest._new(this.file, [int bufferSize = 32768]) : super(bufferSize);
-
-  static Future<FileRequest> open(String url) async {
-    return FileRequest._new(await File(url).open());
-  }
-
-  @override
-  Future closeImpl() async {
-    await file.close();
-    file = null;
-  }
-
-  @override
-  Future<int> read(Pointer<Uint8> buf, int size) async {
-    final ret = await file.readInto(buf.asTypedList(size));
-    if (ret == 0) return -1;
-    return ret;
-  }
-
-  @override
-  Future<int> seek(int offset, int whence) async {
-    switch (whence) {
-      case AVSEEK_SIZE:
-        return file.length();
-      default:
-        await file.setPosition(offset);
-        return 0;
-    }
-  }
 }

@@ -25,7 +25,7 @@ class _WrapIsolateProtocolRequest extends ffi.ProtocolRequest {
 
 abstract class ProtocolRequest extends _IsolateEncodable {
   final int bufferSize;
-  Future<int> read(Pointer<Uint8> buf, int size);
+  Future<int> read(Uint8List buf);
   Future<int> seek(int offset, int whence);
   Future<void> closeImpl();
   bool _isCancel = false;
@@ -48,8 +48,7 @@ abstract class ProtocolRequest extends _IsolateEncodable {
         switch (msg[#type]) {
           case #read:
             return read(
-              Pointer.fromAddress(msg[#buf]),
-              msg[#size],
+              Pointer<Uint8>.fromAddress(msg[#buf]).asTypedList(msg[#size]),
             );
           case #seek:
             return seek(

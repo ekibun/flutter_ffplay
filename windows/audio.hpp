@@ -1,5 +1,5 @@
 #include "exception"
-#include "ffi.h"
+#include "../cxx/ffi.h"
 
 #include <mmdeviceapi.h>
 #include <audiopolicy.h>
