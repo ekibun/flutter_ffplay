@@ -63,23 +63,6 @@ class AudioClientImpl : public PlaybackClient
   }
 
 public:
-  int64_t getSampleRate()
-  {
-    return pwfx->nSamplesPerSec;
-  }
-  int64_t getChannels()
-  {
-    return pwfx->nChannels;
-  }
-  AVSampleFormat getFormat()
-  {
-    return format;
-  }
-  int64_t getBufferFrameCount()
-  {
-    return bufferFrameCount;
-  }
-
   uint32_t getCurrentPadding()
   {
     uint32_t numFramesPadding = 0;
@@ -92,6 +75,8 @@ public:
     if (!pRenderClient)
       return -1;
     int requestBuffer = min(bufferFrameCount - getCurrentPadding(), length);
+    if (requestBuffer == 0)
+      return 0;
     uint8_t *buffer;
     pRenderClient->GetBuffer(requestBuffer, &buffer);
     if (!buffer)

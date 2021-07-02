@@ -3,7 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  player
+  ffmpeg
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

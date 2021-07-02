@@ -35,12 +35,12 @@ public:
       if (pixel_buffer->width != width ||
           pixel_buffer->height != height)
       {
-        rgb_buffer.reset(new uint8_t[buffer_size]);
+        // rgb_buffer.reset(new uint8_t[buffer_size]);
         pixel_buffer->width = width;
         pixel_buffer->height = height;
-        pixel_buffer->buffer = rgb_buffer.get();
+        pixel_buffer->buffer = _videoBuffer;
       }
-      memcpy_s(rgb_buffer.get(), buffer_size, _videoBuffer, buffer_size);
+      // memcpy_s(rgb_buffer.get(), buffer_size, _videoBuffer, buffer_size);
     }
     registrar_->MarkTextureFrameAvailable(texture_id_);
   }

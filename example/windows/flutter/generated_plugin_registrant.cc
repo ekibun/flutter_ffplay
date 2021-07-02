@@ -2,11 +2,13 @@
 //  Generated file. Do not edit.
 //
 
+// clang-format off
+
 #include "generated_plugin_registrant.h"
 
-#include <player/player_plugin.h>
+#include <ffmpeg/ffmpeg_plugin.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
-  PlayerPluginRegisterWithRegistrar(
-      registry->GetRegistrarForPlugin("PlayerPlugin"));
+  FfmpegPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FfmpegPlugin"));
 }

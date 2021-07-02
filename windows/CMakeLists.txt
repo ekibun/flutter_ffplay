@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
-set(PROJECT_NAME "player")
+set(PROJECT_NAME "ffmpeg")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin, so it must
 # not be changed
-set(PLUGIN_NAME "player_plugin")
+set(PLUGIN_NAME "ffmpeg_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
   "${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffi.cpp"
-  "player_plugin.cpp"
+  "ffmpeg_plugin.cpp"
 )
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffmpeg.cmake")
@@ -24,7 +24,7 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 
 # List of absolute paths to libraries that should be bundled with the plugin
-set(player_bundled_libraries
+set(ffmpeg_bundled_libraries
   ""
   PARENT_SCOPE
 )

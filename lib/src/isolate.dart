@@ -25,8 +25,9 @@ class IsolateError extends _IsolateEncodable {
   }
 
   static IsolateError? _decode(Map obj) {
-    if (obj.containsKey(#jsError))
+    if (obj.containsKey(#jsError)) {
       return IsolateError(obj[#jsError], obj[#jsErrorStack]);
+    }
     return null;
   }
 
@@ -40,7 +41,7 @@ class IsolateError extends _IsolateEncodable {
 }
 
 dynamic _encodeData(data, {Map<dynamic, dynamic>? cache}) {
-  if (cache == null) cache = Map();
+  cache ??= {};
   if (cache.containsKey(data)) return cache[data];
   if (data is _IsolateEncodable) return data._encode();
   if (data is List) {
@@ -65,7 +66,7 @@ dynamic _encodeData(data, {Map<dynamic, dynamic>? cache}) {
 }
 
 dynamic _decodeData(data, decoders, {Map<dynamic, dynamic>? cache}) {
-  if (cache == null) cache = Map();
+  cache ??= {};
   if (cache.containsKey(data)) return cache[data];
   if (data is List) {
     final ret = [];
@@ -124,7 +125,7 @@ class _IsolateFunction implements _IsolateEncodable {
   }
 
   static ReceivePort? _invokeHandler;
-  static Set<_IsolateFunction> _handlers = Set();
+  static final _handlers = <_IsolateFunction>{};
 
   static get _handlePort {
     if (_invokeHandler == null) {
@@ -146,12 +147,14 @@ class _IsolateFunction implements _IsolateEncodable {
           final err = _encodeData(IsolateError(e, stack));
           if (msg[#ptr] != null) {
             Pointer<IntPtr>.fromAddress(msg[#ptr]).value = -1;
+            // ignore: avoid_print
             print(IsolateError(e, stack));
           }
-          if (msgPort != null)
+          if (msgPort != null) {
             msgPort.send({
               #error: err,
             });
+          }
         }
       });
     }
@@ -167,8 +170,9 @@ class _IsolateFunction implements _IsolateEncodable {
       #port: evaluatePort.sendPort,
     });
     final result = await evaluatePort.first;
-    if (result is Map && result.containsKey(#error))
+    if (result is Map && result.containsKey(#error)) {
       throw _decodeData(result[#error], _isolateDecoders);
+    }
     return _decodeData(result, _isolateDecoders);
   }
 
@@ -200,10 +204,11 @@ class _IsolateFunction implements _IsolateEncodable {
   }
 
   int callSync(dynamic positionalArguments) {
-    if (_port == null)
+    if (_port == null) {
       return _handle({
         #args: _encodeData(positionalArguments),
       });
+    }
     final ptr = malloc<IntPtr>();
     ptr.value = ptr.address;
     _port!.send({
@@ -213,18 +218,21 @@ class _IsolateFunction implements _IsolateEncodable {
       },
       #ptr: ptr.address,
     });
-    while (ptr.value == ptr.address) sleep(Duration(milliseconds: 10));
+    while (ptr.value == ptr.address) {
+      sleep(const Duration(milliseconds: 10));
+    }
     final ret = ptr.value;
     malloc.free(ptr);
     return ret;
   }
 
   static _IsolateFunction? _decode(Map obj) {
-    if (obj.containsKey(#isolateFunctionPort))
+    if (obj.containsKey(#isolateFunctionPort)) {
       return _IsolateFunction._fromId(
         obj[#isolateFunctionId],
         obj[#isolateFunctionPort],
       );
+    }
     return null;
   }
 

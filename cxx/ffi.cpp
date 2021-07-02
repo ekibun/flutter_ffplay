@@ -19,13 +19,16 @@ extern "C"
 
   DLLEXPORT int64_t PlaybackClient_flushAudioBuffer(PlaybackClient *audio)
   {
-    int offset = audio->writeBuffer(
-        audio->_audioBuffer1 + audio->audioOffset, audio->_nbSamples - audio->audioOffset);
-    if (offset < 0)
-      return 0;
-    audio->audioOffset += offset;
     if (audio->audioOffset < audio->_nbSamples)
-      return audio->audioOffset - audio->_nbSamples;
+    {
+      int offset = audio->writeBuffer(
+          audio->_audioBuffer1 + audio->audioOffset, audio->_nbSamples - audio->audioOffset);
+      if (offset < 0)
+        return 0;
+      audio->audioOffset += offset;
+      if (audio->audioOffset < audio->_nbSamples)
+        return audio->audioOffset - audio->_nbSamples;
+    }
     return audio->getCurrentPadding() * AV_TIME_BASE / audio->sampleRate + 1;
   }
 

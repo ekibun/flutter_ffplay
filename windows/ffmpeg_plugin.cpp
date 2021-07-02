@@ -1,19 +1,20 @@
-#include "include/player/player_plugin.h"
+#include "include/ffmpeg/ffmpeg_plugin.h"
 #include "flutter_video_renderer.hpp"
 
 namespace
 {
-  class PlayerPlugin : public flutter::Plugin
+
+  class FfmpegPlugin : public flutter::Plugin
   {
   public:
     static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-    PlayerPlugin(
+    FfmpegPlugin(
         flutter::PluginRegistrarWindows *registrar,
         std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel);
 
-    virtual ~PlayerPlugin();
-    
+    virtual ~FfmpegPlugin();
+
   private:
     // Called when a method is called on this plugin's channel from Dart.
     void HandleMethodCall(
@@ -33,17 +34,17 @@ namespace
   }
 
   // static
-  void PlayerPlugin::RegisterWithRegistrar(
+  void FfmpegPlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarWindows *registrar)
   {
     auto channel =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-            registrar->messenger(), "player",
+            registrar->messenger(), "ffmpeg",
             &flutter::StandardMethodCodec::GetInstance());
 
     auto *channel_pointer = channel.get();
 
-    auto plugin = std::make_unique<PlayerPlugin>(registrar, std::move(channel));
+    auto plugin = std::make_unique<FfmpegPlugin>(registrar, std::move(channel));
 
     channel_pointer->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
@@ -54,16 +55,16 @@ namespace
     registrar->AddPlugin(std::move(plugin));
   }
 
-  PlayerPlugin::PlayerPlugin(
+  FfmpegPlugin::FfmpegPlugin(
       flutter::PluginRegistrarWindows *registrar,
       std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel)
       : channel_(std::move(channel)),
         messenger_(registrar->messenger()),
         textures_(registrar->texture_registrar()) {}
 
-  PlayerPlugin::~PlayerPlugin() {}
+  FfmpegPlugin::~FfmpegPlugin() {}
 
-  void PlayerPlugin::HandleMethodCall(
+  void FfmpegPlugin::HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
   {
@@ -91,10 +92,10 @@ namespace
 
 } // namespace
 
-void PlayerPluginRegisterWithRegistrar(
+void FfmpegPluginRegisterWithRegistrar(
     FlutterDesktopPluginRegistrarRef registrar)
 {
-  PlayerPlugin::RegisterWithRegistrar(
+  FfmpegPlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarManager::GetInstance()
           ->GetRegistrar<flutter::PluginRegistrarWindows>(registrar));
 }

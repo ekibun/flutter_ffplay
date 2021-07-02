@@ -1,6 +1,5 @@
 {
   "files.associations": {
-    "sstream": "cpp",
     "algorithm": "cpp",
     "array": "cpp",
     "atomic": "cpp",
@@ -35,15 +34,18 @@
     "locale": "cpp",
     "map": "cpp",
     "memory": "cpp",
+    "mutex": "cpp",
     "new": "cpp",
     "optional": "cpp",
     "ostream": "cpp",
     "ratio": "cpp",
-    "set": "cpp",
+    "sstream": "cpp",
     "stdexcept": "cpp",
+    "stop_token": "cpp",
     "streambuf": "cpp",
     "string": "cpp",
     "system_error": "cpp",
+    "thread": "cpp",
     "tuple": "cpp",
     "type_traits": "cpp",
     "typeinfo": "cpp",
@@ -65,15 +67,6 @@
     "xstring": "cpp",
     "xtr1common": "cpp",
     "xtree": "cpp",
-    "xutility": "cpp",
-    "any": "cpp",
-    "condition_variable": "cpp",
-    "mutex": "cpp",
-    "shared_mutex": "cpp",
-    "stop_token": "cpp",
-    "thread": "cpp",
-    "variant": "cpp",
-    "avio_internal.h": "c",
-    "time.h": "c"
+    "xutility": "cpp"
   }
 }

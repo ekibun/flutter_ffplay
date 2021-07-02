@@ -1,7 +1,7 @@
 part of '../ffmpeg.dart';
 
 class FFMpegFrame {
-  int _pts = -1;
+  int timestamp = -1;
   _PTS? _processing;
   Pointer<ffi.AVFrame>? _p;
   FFMpegFrame._(this._p);

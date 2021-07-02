@@ -1,6 +1,6 @@
-# player_example
+# ffmpeg_example
 
-Demonstrates how to use the player plugin.
+Demonstrates how to use the ffmpeg plugin.
 
 ## Getting Started
 

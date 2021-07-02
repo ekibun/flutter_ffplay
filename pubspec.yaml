@@ -1,4 +1,4 @@
-name: player
+name: ffmpeg
 description: A new flutter plugin project.
 version: 0.0.1
 homepage:
@@ -17,6 +17,7 @@ dev_dependencies:
     sdk: flutter
   flutter_tools:
     sdk: flutter
+  flutter_lints: ^1.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -30,7 +31,10 @@ flutter:
   plugin:
     platforms:
       windows:
-        pluginClass: PlayerPlugin
+        pluginClass: FfmpegPlugin
+      android:
+        pluginClass: FfmpegPlugin
+        package: soko.ekibun.ffmpeg
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

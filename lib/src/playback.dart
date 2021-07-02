@@ -1,6 +1,6 @@
 part of '../ffmpeg.dart';
 
-final MethodChannel _channel = const MethodChannel('player');
+const _channel = MethodChannel('ffmpeg');
 
 class Playback {
   Pointer<ffi.PlaybackClient>? _playback;
@@ -21,8 +21,8 @@ class Playback {
   Future<int> _flushFrame(int codecType, FFMpegFrame frame) async {
     switch (codecType) {
       case ffi.AVMediaType.AUDIO:
-        final offset = await _playback?.flushAudioBuffer();
-        return offset != null ? frame._pts - offset : -1;
+        final offset = await _playback?.flushAudioBuffer() ?? -1;
+        return offset < 0 ? -1 : frame.timestamp - offset;
       case ffi.AVMediaType.VIDEO:
         _playback?.flushVideoBuffer();
         return -1;
@@ -38,7 +38,7 @@ class Playback {
     _playback?.stop();
   }
 
-  void close() async {
+  Future close() async {
     _playback?.close();
     _playback = null;
   }

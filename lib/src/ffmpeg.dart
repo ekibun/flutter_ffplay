@@ -31,9 +31,15 @@ class FFMpegContext extends FormatContext {
   Future? _playingFuture;
 
   Future play(List<FFMpegStream> streams) async {
+    final _streams = <int, FFMpegStream>{};
+    final vstream =
+        streams.indexWhere((s) => s.codecType == ffi.AVMediaType.VIDEO);
+    if (vstream >= 0) _streams[ffi.AVMediaType.VIDEO] = streams[vstream];
+    final astream =
+        streams.indexWhere((s) => s.codecType == ffi.AVMediaType.AUDIO);
+    if (astream >= 0) _streams[ffi.AVMediaType.AUDIO] = streams[astream];
     await pause();
-    _pts =
-        _PTS(Map.fromEntries(streams.map((s) => MapEntry(s.codecType, s))), 0);
+    _pts = _PTS(_streams);
     _pts!.playing = true;
     return seekTo(0);
   }
@@ -43,6 +49,7 @@ class FFMpegContext extends FormatContext {
   Future pause() {
     _pts?.playing = false;
     _playback.stop();
+    if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
     return Future.value(_playingFuture);
   }
 
@@ -53,10 +60,10 @@ class FFMpegContext extends FormatContext {
   Future close() async {
     await pause();
     await super.close();
-    _playback.close();
-    final codecFinals = _codecs.values.map((codec) => codec.close());
+    await _onFrameAdded.close();
+    final codecFinals = [..._codecs.values].map((codec) => codec.close());
     _codecs.clear();
-    return Future.wait(codecFinals);
+    await Future.wait(codecFinals);
   }
 
   @override
@@ -73,7 +80,9 @@ class FFMpegContext extends FormatContext {
     _pts = pts;
     // remove cache frame
     for (var frames in _frames.values) {
-      for (var frame in frames) frame._close();
+      for (var frame in frames) {
+        frame._close();
+      }
       frames.clear();
     }
     _frames.clear();
@@ -102,12 +111,12 @@ class FFMpegContext extends FormatContext {
   }
 
   Future resume() => _resume(null);
+  final _onFrameAdded = StreamController.broadcast();
 
   Future _resume(Completer<bool>? onNextFrame) async {
-    final pts = _pts!;
-    final _isPlaying = () {
-      return (_pts == pts) && pts.playing;
-    };
+    final pts = _pts;
+    if (pts == null) return;
+    bool _isPlaying() => _pts == pts && pts.playing;
     try {
       pts.playing = true;
       _playback.start();
@@ -115,48 +124,61 @@ class FFMpegContext extends FormatContext {
       pts.streams.forEach((codecType, stream) async {
         Future? lastUpdate;
         while (true) {
-          await Future.delayed(Duration(milliseconds: 1));
           if (!_isPlaying()) break;
           final frame = _frames[codecType]?.firstWhere(
               (f) => f._processing != pts,
               orElse: () => FFMpegFrame._(null));
-          if (frame == null || frame._p == null) continue;
+          if (frame == null || frame._p == null) {
+            await _onFrameAdded.stream.first;
+            continue;
+          }
           frame._processing = pts;
           final _lastUpdate = lastUpdate;
-          final ptsNow = pts.ptsNow();
           lastUpdate = (() async {
-            if ((onNextFrame?.isCompleted == false ||
-                    codecType == ffi.AVMediaType.VIDEO) &&
-                frame._pts > ptsNow)
-              await Future.delayed(Duration(
-                  milliseconds:
-                      (frame._pts - ptsNow) * 1000 ~/ ffi.AV_TIME_BASE));
-            if (!_isPlaying() ||
-                (onNextFrame?.isCompleted == false &&
-                    codecType == ffi.AVMediaType.AUDIO)) return;
-            _playback._postFrame(codecType, frame);
+            if (!_isPlaying()) return;
+            bool muteOnNextFrame() =>
+                codecType == ffi.AVMediaType.AUDIO &&
+                onNextFrame?.isCompleted == false;
+            // decode frame
+            if (!muteOnNextFrame()) _playback._postFrame(codecType, frame);
             await _lastUpdate;
             if (!_isPlaying()) return;
+            // wait video
+            while ((muteOnNextFrame() || codecType == ffi.AVMediaType.VIDEO) &&
+                frame.timestamp > pts.ptsNow()) {
+              await Future.delayed(const Duration(milliseconds: 1));
+              if (!_isPlaying()) return;
+            }
+            if (muteOnNextFrame()) return;
             int timestamp = await _playback._flushFrame(codecType, frame);
             if (!_isPlaying()) return;
             if (timestamp >= 0) pts.update(timestamp);
             if (codecType == ffi.AVMediaType.VIDEO &&
                 onNextFrame?.isCompleted == false) onNextFrame?.complete(true);
-            _frames.remove(frame);
-            frame._close();
             _onFrame?.call(pts.ptsNow());
-          })();
+          })()
+            ..whenComplete(() {
+              _frames[codecType]?.remove(frame);
+              frame._close();
+            });
           await Future.value(_lastUpdate);
         }
       });
       var lastDecoTimeStamp = -1;
       while (true) {
-        await Future.delayed(Duration(milliseconds: 1));
         if (!_isPlaying()) break;
-        if (lastDecoTimeStamp - pts.ptsNow() > 1 * ffi.AV_TIME_BASE) continue;
+        if (lastDecoTimeStamp - pts.ptsNow() > 1 * ffi.AV_TIME_BASE) {
+          await Future.delayed(const Duration(milliseconds: 1));
+        }
         final packet = await super.getPacket(streams);
-        if (packet.address == 0) break;
-        if (this._pts != pts) {
+        if (packet.address == 0) {
+          if (_frames.values.fold<int>(0, (sum, a) => sum + a.length) == 0) {
+            break;
+          }
+          await Future.delayed(const Duration(milliseconds: 100));
+          continue;
+        }
+        if (_pts != pts) {
           packet.close();
           break;
         }
@@ -169,13 +191,14 @@ class FFMpegContext extends FormatContext {
             .then((frame) {
           packet.close();
           if (frame == null) return;
-          if (this._pts != pts) {
+          if (_pts != pts) {
             frame._close();
             return;
           }
-          frame._pts = stream._p.getFramePts(frame._p!);
-          lastDecoTimeStamp = frame._pts;
+          frame.timestamp = stream._p.getFramePts(frame._p!);
+          lastDecoTimeStamp = frame.timestamp;
           (_frames[codecType] ??= []).add(frame);
+          if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
         });
       }
     } finally {

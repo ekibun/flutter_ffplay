@@ -1,21 +1,24 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:player/ffmpeg.dart';
+import 'package:ffmpeg/ffmpeg.dart';
+
 import 'protocol.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   _MyAppState createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  TextEditingController _controller = TextEditingController(
-    text: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+  final TextEditingController _controller = TextEditingController(
+    text: 'D:/Downloads/System/big_buck_bunny_2.mp4',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
@@ -45,14 +48,14 @@ class _MyAppState extends State<MyApp> {
         child: Column(children: [
           Row(
             children: [
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: _controller,
                 ),
               ),
               TextButton(
-                child: Text("load"),
+                child: const Text("load"),
                 onPressed: () async {
                   if (_ctx != null) {
                     final ctx = _ctx;
@@ -60,7 +63,7 @@ class _MyAppState extends State<MyApp> {
                     await ctx?.close();
                   }
                   final url = _controller.text;
-                  final request = HttpProtocolRequest(Uri.parse(url));
+                  final request = await FileRequest.open(url);
                   final playback = _playback ??= await Playback.create();
                   final ctx = _ctx = FFMpegContext(
                     request,
@@ -87,7 +90,7 @@ class _MyAppState extends State<MyApp> {
           Expanded(
             child: _playback != null
                 ? Texture(textureId: _playback!.textureId)
-                : SizedBox(),
+                : const SizedBox(),
           ),
           Row(
             children: [
@@ -114,7 +117,7 @@ class _MyAppState extends State<MyApp> {
                     }),
               ),
               Text("${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
             ],
           ),
         ]),

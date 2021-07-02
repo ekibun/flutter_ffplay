@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:player/ffmpeg.dart';
+import 'package:ffmpeg/ffmpeg.dart';
 
 class FileRequest extends ProtocolRequest {
   RandomAccessFile? file;
@@ -49,27 +49,28 @@ class _HttpResponse {
 
   _HttpResponse(this.pos, this.rsp, int maxBufferSize) {
     _sub = rsp.listen((data) {
-      print("ondata[${data.length}]");
-      // while (buffer.length > maxBufferSize)
-      //   await Future.delayed(Duration(milliseconds: 10));
+      // ignore: avoid_print
+      print("${buffer.length}+${data.length}");
       buffer.addAll(data);
       _onData.add(buffer);
+      // if (buffer.length > maxBufferSize) _sub.pause();
     }, onDone: () => _onData.close());
   }
 
   close() async {
     _sub.cancel();
+    (await rsp.detachSocket()).close();
   }
 }
 
 class HttpProtocolRequest extends ProtocolRequest {
   int _offset = 0;
   int _length = 0;
+  final _client = HttpClient();
   _HttpResponse? __rsp;
 
   Future<_HttpResponse> getRange(int start) async {
-    print('get range $url $start');
-    final req = await HttpClient().getUrl(url);
+    final req = await _client.getUrl(url);
     req.headers.add(HttpHeaders.rangeHeader, "bytes=$start-");
     final rsp = await req.close();
     return _HttpResponse(
@@ -79,7 +80,7 @@ class HttpProtocolRequest extends ProtocolRequest {
   Future<_HttpResponse> get _rsp async => __rsp ??= await getRange(_offset);
   Uri url;
 
-  HttpProtocolRequest(this.url, [int bufferSize = 32768]) : super(bufferSize);
+  HttpProtocolRequest(this.url, [int bufferSize = 8000]) : super(bufferSize);
 
   @override
   Future<void> closeImpl() async {}
@@ -87,11 +88,16 @@ class HttpProtocolRequest extends ProtocolRequest {
   @override
   Future<int> read(Uint8List buf) async {
     final rsp = await _rsp;
+    if (rsp._sub.isPaused) rsp._sub.resume();
     while (true) {
       final range = min(rsp.buffer.length, buf.length);
       if (range == 0 && rsp.isClosed) return -1;
       if (range == 0) {
-        await rsp._onData.stream.first;
+        try {
+          await rsp._onData.stream.first;
+        } catch (e) {
+          return -1;
+        }
         continue;
       }
       _offset += range;

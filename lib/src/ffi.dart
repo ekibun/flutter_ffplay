@@ -26,8 +26,8 @@ abstract class AVMediaType {
 }
 
 final ffilib = Platform.environment['FLUTTER_TEST'] == 'true'
-    ? DynamicLibrary.open('./test/build/Debug/player_plugin.dll')
-    : DynamicLibrary.open('player_plugin.dll');
+    ? DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll')
+    : DynamicLibrary.open('ffmpeg_plugin.dll');
 
 Map<String, Function> _ffiCache = {};
 int _ffiClassGet<C extends Opaque>(Pointer<C> obj, String propName) =>

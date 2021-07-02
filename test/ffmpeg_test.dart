@@ -1,5 +1,6 @@
 // @dart=2.9
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -10,14 +11,20 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/executable.dart';
 import 'package:flutter_tools/src/windows/visual_studio.dart';
 import 'package:file/local.dart';
-import 'package:player/ffmpeg.dart';
+import 'package:ffmpeg/ffmpeg.dart';
 import 'package:process/process.dart';
 
+// ignore: avoid_relative_lib_imports
 import '../example/lib/protocol.dart';
-import 'mock.dart';
+import 'package:ffmpeg/src/ffi.dart';
+
+final createMockPlayback = ffilib.lookupFunction<
+    Pointer<PlaybackClient> Function(), Pointer<PlaybackClient> Function()>(
+  'Mock_createPlayback',
+);
 
 void main() {
-  const MethodChannel channel = MethodChannel('player');
+  const MethodChannel channel = MethodChannel('ffmpeg');
 
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -34,14 +41,14 @@ void main() {
     channel.setMockMethodCallHandler(null);
   });
   test('make', () async {
-    final platform = LocalPlatform();
+    const platform = LocalPlatform();
     final utf8Encoding = Encoding.getByName('utf-8');
     String cmakePath = 'cmake';
     if (platform.isWindows) {
       final stdio = Stdio();
       final vs = VisualStudio(
-          fileSystem: LocalFileSystem(),
-          processManager: LocalProcessManager(),
+          fileSystem: const LocalFileSystem(),
+          processManager: const LocalProcessManager(),
           platform: platform,
           logger: LoggerFactory(
             stdio: stdio,
@@ -62,7 +69,7 @@ void main() {
               windows: platform.isWindows));
       cmakePath = vs.cmakePath;
     }
-    final buildDir = './build';
+    const buildDir = './build';
     var result = Process.runSync(
       cmakePath,
       ['-S', './', '-B', buildDir],
@@ -84,18 +91,19 @@ void main() {
     stdout.write(result.stdout);
     stderr.write(result.stderr);
     expect(result.exitCode, 0);
-  }, skip: true);
+  });
 
   test('get stream info', () async {
-    final url = 'D:/CloudMusic/seven oops - オレンジ.flac';
+    const url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
     final ctx = FFMpegContext(protocol, await Playback.create());
     final streams = await ctx.getStreams();
+    // ignore: avoid_print
     print(streams);
     await ctx
         .play(streams.where((s) => s.codecType == AVMediaType.AUDIO).toList());
-    await Future.delayed(Duration(seconds: 5));
+    await Future.delayed(const Duration(seconds: 5));
     await ctx.seekTo(30 * AV_TIME_BASE);
-    await Future.delayed(Duration(seconds: 30));
+    await Future.delayed(const Duration(seconds: 30));
   });
 }
