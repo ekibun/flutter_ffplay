@@ -25,9 +25,16 @@ abstract class AVMediaType {
   static const int NB = 5;
 }
 
-final ffilib = Platform.environment['FLUTTER_TEST'] == 'true'
-    ? DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll')
-    : DynamicLibrary.open('ffmpeg_plugin.dll');
+final ffilib = (() {
+  if (Platform.environment['FLUTTER_TEST'] == 'true') {
+    return DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll');
+  } else if (Platform.isWindows) {
+    return DynamicLibrary.open('ffmpeg_plugin.dll');
+  } else if (Platform.isAndroid) {
+    return DynamicLibrary.open('libffmpeg.so');
+  }
+  return DynamicLibrary.process();
+})();
 
 Map<String, Function> _ffiCache = {};
 int _ffiClassGet<C extends Opaque>(Pointer<C> obj, String propName) =>
@@ -118,7 +125,7 @@ extension PointerPlaybackClient on Pointer<PlaybackClient> {
 
   void stop() => _ffiClassMethod(this, 'stop');
 
-  close() => _ffiClassMethod(this, 'close');
+  void close() => _ffiClassMethod(this, 'close');
 }
 
 class CodecContext {

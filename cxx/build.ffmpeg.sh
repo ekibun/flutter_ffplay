@@ -54,24 +54,26 @@ case $1 in
     )
     ;;
   "android")
-    MIN_API=21
-    ARCH_ROOT="$ANDROID_NDK_HOME/platforms/android-$MIN_API/arch-$2"
     TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
     case $2 in
       "arm")
+        MIN_API=16
         CC_PREFIX="$TOOLCHAIN/bin/armv7a-linux-androideabi$MIN_API"
         HOST=arm-linux-androideabi
         ;;
       "arm64")
+        MIN_API=21
         CC_PREFIX="$TOOLCHAIN/bin/aarch64-linux-android$MIN_API"
         HOST=aarch64-linux-android
         ;;
       "x86")
+        MIN_API=16
         CC_PREFIX="$TOOLCHAIN/bin/i686-linux-android$MIN_API"
         HOST=i686-linux-android
         CONFIG_ARGS+=(--disable-asm) # TODO https://trac.ffmpeg.org/ticket/7796
         ;;
       "x86_64")
+        MIN_API=21
         CC_PREFIX="$TOOLCHAIN/bin/x86_64-linux-android$MIN_API"
         HOST=x86_64-linux-android
         CONFIG_ARGS+=(--disable-asm) # TODO https://stackoverflow.com/a/57707863
@@ -79,6 +81,7 @@ case $1 in
       *)
         exitUnsupport
     esac
+    ARCH_ROOT="$ANDROID_NDK_HOME/platforms/android-$MIN_API/arch-$2"
     CONFIG_ARGS+=(
       --arch=$2
       --target-os=$1

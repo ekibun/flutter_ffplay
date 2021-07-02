@@ -50,10 +50,10 @@ class _HttpResponse {
   _HttpResponse(this.pos, this.rsp, int maxBufferSize) {
     _sub = rsp.listen((data) {
       // ignore: avoid_print
-      print("${buffer.length}+${data.length}");
+      // print("${buffer.length}+${data.length}");
       buffer.addAll(data);
       _onData.add(buffer);
-      // if (buffer.length > maxBufferSize) _sub.pause();
+      if (buffer.length > maxBufferSize) _sub.pause();
     }, onDone: () => _onData.close());
   }
 
@@ -73,8 +73,7 @@ class HttpProtocolRequest extends ProtocolRequest {
     final req = await _client.getUrl(url);
     req.headers.add(HttpHeaders.rangeHeader, "bytes=$start-");
     final rsp = await req.close();
-    return _HttpResponse(
-        rsp.statusCode == 206 ? _offset : 0, rsp, 5 * bufferSize);
+    return _HttpResponse(rsp.statusCode == 206 ? _offset : 0, rsp, 128 * 1024);
   }
 
   Future<_HttpResponse> get _rsp async => __rsp ??= await getRange(_offset);
@@ -113,21 +112,20 @@ class HttpProtocolRequest extends ProtocolRequest {
       case AVSEEK_SIZE:
         if (_length != 0) return _length;
         final rsp = await _rsp;
-        if (rsp.rsp.statusCode == 206)
+        if (rsp.rsp.statusCode == 206) {
           return _length = int.parse(rsp.rsp.headers
               .value(HttpHeaders.contentRangeHeader)!
               .split("/")
               .last);
+        }
         return _length = rsp.rsp.contentLength;
       default:
         final rsp = __rsp;
         if (rsp != null &&
             _offset <= offset &&
             _offset + rsp.buffer.length > offset) {
-          print("good!");
           rsp.buffer.removeRange(0, offset - _offset);
         } else {
-          print("bad $_offset -> $offset");
           __rsp?.close();
           __rsp = null;
         }

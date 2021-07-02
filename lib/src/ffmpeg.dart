@@ -20,7 +20,7 @@ class _PTS {
 }
 
 class FFMpegContext extends FormatContext {
-  final Playback _playback;
+  final Playback? _playback;
   final void Function(int?)? _onFrame;
 
   FFMpegContext(ProtocolRequest req, this._playback,
@@ -48,7 +48,7 @@ class FFMpegContext extends FormatContext {
 
   Future pause() {
     _pts?.playing = false;
-    _playback.stop();
+    _playback?.stop();
     if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
     return Future.value(_playingFuture);
   }
@@ -119,7 +119,7 @@ class FFMpegContext extends FormatContext {
     bool _isPlaying() => _pts == pts && pts.playing;
     try {
       pts.playing = true;
-      _playback.start();
+      _playback?.start();
       final streams = pts.streams.values.toList();
       pts.streams.forEach((codecType, stream) async {
         Future? lastUpdate;
@@ -140,7 +140,7 @@ class FFMpegContext extends FormatContext {
                 codecType == ffi.AVMediaType.AUDIO &&
                 onNextFrame?.isCompleted == false;
             // decode frame
-            if (!muteOnNextFrame()) _playback._postFrame(codecType, frame);
+            if (!muteOnNextFrame()) _playback?._postFrame(codecType, frame);
             await _lastUpdate;
             if (!_isPlaying()) return;
             // wait video
@@ -150,11 +150,15 @@ class FFMpegContext extends FormatContext {
               if (!_isPlaying()) return;
             }
             if (muteOnNextFrame()) return;
-            int timestamp = await _playback._flushFrame(codecType, frame);
+            int timestamp =
+                await _playback?._flushFrame(codecType, frame) ?? -1;
             if (!_isPlaying()) return;
             if (timestamp >= 0) pts.update(timestamp);
             if (codecType == ffi.AVMediaType.VIDEO &&
-                onNextFrame?.isCompleted == false) onNextFrame?.complete(true);
+                onNextFrame?.isCompleted == false) {
+              pts.update(frame.timestamp);
+              onNextFrame?.complete(true);
+            }
             _onFrame?.call(pts.ptsNow());
           })()
             ..whenComplete(() {

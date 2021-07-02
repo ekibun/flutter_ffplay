@@ -18,9 +18,7 @@ if (WIN32)
   )
 endif ()
 
-target_include_directories(${PLUGIN_NAME} PRIVATE "${FFMPEG_PATH}/include")
-
-target_link_libraries(${PLUGIN_NAME} PRIVATE
+set(ffmpeg-lib
   "${FFMPEG_PATH}/lib/libavformat.a"
   "${FFMPEG_PATH}/lib/libavcodec.a"
   "${FFMPEG_PATH}/lib/libavutil.a"

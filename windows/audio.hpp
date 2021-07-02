@@ -101,6 +101,11 @@ public:
   }
   void close()
   {
+    delete this;
+  }
+
+  ~AudioClientImpl()
+  {
     if (pwfx)
       CoTaskMemFree(pwfx);
     pwfx = nullptr;

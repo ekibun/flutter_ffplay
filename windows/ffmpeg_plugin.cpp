@@ -78,12 +78,6 @@ namespace
       auto renderer = (FlutterVideoRenderer *)getIntVariant(*method_call.arguments());
       result->Success(flutter::EncodableValue((int64_t)renderer->texture_id()));
     }
-    else if (method_call.method_name().compare("closePlayback") == 0)
-    {
-      auto renderer = (FlutterVideoRenderer *)getIntVariant(*method_call.arguments());
-      delete renderer;
-      result->Success();
-    }
     else
     {
       result->NotImplemented();

@@ -18,7 +18,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController _controller = TextEditingController(
-    text: 'D:/Downloads/System/big_buck_bunny_2.mp4',
+    text: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
@@ -45,82 +45,84 @@ class _MyAppState extends State<MyApp> {
       debugShowCheckedModeBanner: false,
       home: Material(
         type: MaterialType.canvas,
-        child: Column(children: [
-          Row(
-            children: [
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _controller,
+        child: SafeArea(
+          child: Column(children: [
+            Row(
+              children: [
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                  ),
                 ),
-              ),
-              TextButton(
-                child: const Text("load"),
-                onPressed: () async {
-                  if (_ctx != null) {
-                    final ctx = _ctx;
-                    _ctx = null;
-                    await ctx?.close();
-                  }
-                  final url = _controller.text;
-                  final request = await FileRequest.open(url);
-                  final playback = _playback ??= await Playback.create();
-                  final ctx = _ctx = FFMpegContext(
-                    request,
-                    playback,
-                    onFrame: (pts) {
-                      setState(() {
-                        if (pts == null) {
-                          _isPlaying = false;
-                        } else {
-                          _isPlaying = true;
-                          _position = seeking ? _position : pts;
-                        }
-                      });
-                    },
-                  );
-                  final streams = await ctx.getStreams();
-                  _duration = await ctx.getDuration();
-                  await ctx.play(streams);
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-          Expanded(
-            child: _playback != null
-                ? Texture(textureId: _playback!.textureId)
-                : const SizedBox(),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                onPressed: () async {
-                  _isPlaying ? _ctx?.pause() : _ctx?.resume();
-                },
-              ),
-              Expanded(
-                child: Slider(
-                    value:
-                        max(0, min(_position.toDouble(), _duration.toDouble())),
-                    max: max(0, _duration.toDouble()),
-                    onChanged: (pos) {
-                      seeking = true;
-                      setState(() {
-                        _position = pos.toInt();
-                      });
-                    },
-                    onChangeEnd: (pos) async {
-                      await _ctx?.seekTo(pos.toInt());
-                      seeking = false;
-                    }),
-              ),
-              Text("${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ]),
+                TextButton(
+                  child: const Text("load"),
+                  onPressed: () async {
+                    if (_ctx != null) {
+                      final ctx = _ctx;
+                      _ctx = null;
+                      await ctx?.close();
+                    }
+                    final url = _controller.text;
+                    final request = HttpProtocolRequest(Uri.parse(url));
+                    final playback = _playback ??= await Playback.create();
+                    final ctx = _ctx = FFMpegContext(
+                      request,
+                      playback,
+                      onFrame: (pts) {
+                        setState(() {
+                          if (pts == null) {
+                            _isPlaying = false;
+                          } else {
+                            _isPlaying = true;
+                            _position = seeking ? _position : pts;
+                          }
+                        });
+                      },
+                    );
+                    final streams = await ctx.getStreams();
+                    _duration = await ctx.getDuration();
+                    await ctx.play(streams);
+                    setState(() {});
+                  },
+                ),
+              ],
+            ),
+            Expanded(
+              child: (_playback?.textureId ?? 0) != 0
+                  ? Texture(textureId: _playback!.textureId)
+                  : const SizedBox(),
+            ),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                  onPressed: () async {
+                    _isPlaying ? _ctx?.pause() : _ctx?.resume();
+                  },
+                ),
+                Expanded(
+                  child: Slider(
+                      value: max(
+                          0, min(_position.toDouble(), _duration.toDouble())),
+                      max: max(0, _duration.toDouble()),
+                      onChanged: (pos) {
+                        seeking = true;
+                        setState(() {
+                          _position = pos.toInt();
+                        });
+                      },
+                      onChangeEnd: (pos) async {
+                        await _ctx?.seekTo(pos.toInt());
+                        seeking = false;
+                      }),
+                ),
+                Text("${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
+                const SizedBox(width: 8),
+              ],
+            ),
+          ]),
+        ),
       ),
     );
   }

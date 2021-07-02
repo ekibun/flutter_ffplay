@@ -40,7 +40,7 @@ extern "C"
     int sampleRate;
     int channels;
     AVSampleFormat format = AV_SAMPLE_FMT_NONE;
-    uint32_t bufferFrameCount;
+    uint32_t bufferFrameCount = 0;
 
     // video
     SwsContext *_swsCtx = nullptr;
