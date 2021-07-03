@@ -1,15 +1,19 @@
 #include "exception"
-#include "../cxx/ffi.h"
 
 #include <mmdeviceapi.h>
 #include <audiopolicy.h>
+
+extern "C"
+{
+#include "libswresample/swresample.h"
+}
 
 const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
-class AudioClientImpl : public PlaybackClient
+class AudioClientImpl
 {
   IMMDeviceEnumerator *pEnumerator = nullptr;
   IMMDevice *pDevice = nullptr;
@@ -63,15 +67,22 @@ class AudioClientImpl : public PlaybackClient
   }
 
 public:
-  uint32_t getCurrentPadding()
+  uint32_t bufferFrameCount;
+  int64_t channels;
+  AVSampleFormat audioFormat;
+  int64_t sampleRate;
+
+  int getCurrentPadding()
   {
     uint32_t numFramesPadding = 0;
     if (pAudioClient)
       pAudioClient->GetCurrentPadding(&numFramesPadding);
     return numFramesPadding;
   }
-  int writeBuffer(uint8_t *data, int64_t length)
+  int64_t flushAudioBuffer(uint8_t *data, int64_t length)
   {
+    if (length <= 0)
+      return getCurrentPadding();
     if (!pRenderClient)
       return -1;
     int requestBuffer = min(bufferFrameCount - getCurrentPadding(), length);
@@ -81,30 +92,31 @@ public:
     pRenderClient->GetBuffer(requestBuffer, &buffer);
     if (!buffer)
       return -1;
-    int count = requestBuffer * av_get_bytes_per_sample(format) * channels;
+    int count = requestBuffer * av_get_bytes_per_sample(audioFormat) * channels;
     memcpy_s(buffer, count, data, count);
     if (pRenderClient->ReleaseBuffer(requestBuffer, 0) < 0)
       return -1;
     return requestBuffer;
   }
-  void start()
+  int resume()
   {
     if (!pAudioClient)
-      return;
+      return -1;
     pAudioClient->Start();
+    return 0;
   }
-  void stop()
+  int stop()
   {
     if (!pAudioClient)
-      return;
+      return -1;
     pAudioClient->Stop();
+    return 0;
   }
-  void close()
+  int pause()
   {
-    delete this;
+    return stop();
   }
-
-  ~AudioClientImpl()
+  void _close()
   {
     if (pwfx)
       CoTaskMemFree(pwfx);
@@ -122,7 +134,10 @@ public:
       pEnumerator->Release();
     pEnumerator = nullptr;
   }
-
+  ~AudioClientImpl()
+  {
+    _close();
+  }
   AudioClientImpl()
   {
     try
@@ -147,7 +162,7 @@ public:
         throw std::exception("IAudioClient GetMixFormat failed");
       sampleRate = pwfx->nSamplesPerSec;
       channels = pwfx->nChannels;
-      format = getSampleFormat(pwfx);
+      audioFormat = getSampleFormat(pwfx);
       if (pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 10000000, 0, pwfx, NULL) < 0)
         throw std::exception("IAudioClient Initialize failed");
       pAudioClient->GetBufferSize(&bufferFrameCount);
@@ -161,7 +176,7 @@ public:
     }
     catch (std::exception &e)
     {
-      close();
+      _close();
       throw e;
     }
   }

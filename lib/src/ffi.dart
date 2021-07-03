@@ -2,6 +2,8 @@ import 'dart:ffi';
 
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
+
 const AVSEEK_SIZE = 0x10000;
 const AVSEEK_FORCE = 0x20000;
 
@@ -25,7 +27,7 @@ abstract class AVMediaType {
   static const int NB = 5;
 }
 
-final ffilib = (() {
+final _ffilib = (() {
   if (Platform.environment['FLUTTER_TEST'] == 'true') {
     return DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll');
   } else if (Platform.isWindows) {
@@ -37,12 +39,12 @@ final ffilib = (() {
 })();
 
 Map<String, Function> _ffiCache = {};
-int _ffiClassGet<C extends Opaque>(Pointer<C> obj, String propName) =>
+int _ffiClassGet<C extends NativeType>(Pointer<C> obj, String propName) =>
     _ffiClassMethod(obj, 'get_$propName');
-int _ffiClassMethod<C extends Opaque>(Pointer<C> obj, String method) {
+int _ffiClassMethod<C extends NativeType>(Pointer<C> obj, String method) {
   final ffiMethodName = '${C}_$method';
   final cache = _ffiCache[ffiMethodName] ??=
-      ffilib.lookupFunction<Int64 Function(Pointer), int Function(Pointer)>(
+      _ffilib.lookupFunction<Int64 Function(Pointer), int Function(Pointer)>(
           ffiMethodName);
   return cache(obj);
 }
@@ -51,7 +53,56 @@ class AVFormatContext extends Opaque {}
 
 class AVCodecContext extends Opaque {}
 
-class PlaybackClient extends Opaque {}
+class SWContext extends Struct {
+  @Int64()
+  external int sampleRate;
+  @Int64()
+  external int channels;
+  @Int64()
+  external int audioFormat;
+  external Pointer<Uint8> audioBuffer;
+  @Int64()
+  external int bufferSamples;
+  @Int64()
+  external int width;
+  @Int64()
+  external int height;
+  @Int64()
+  external int videoFormat;
+  external Pointer<Uint8> videoBuffer;
+}
+
+final int _sizeOfSWContext = _ffilib
+    .lookupFunction<Int64 Function(), int Function()>('sizeOfSWContext')();
+
+Pointer<T> mallocz<T extends NativeType>(int bytes) {
+  final ptr = malloc<Uint8>(bytes);
+  ptr.asTypedList(bytes).setAll(0, List.filled(bytes, 0));
+  return ptr.cast();
+}
+
+Pointer<SWContext> mallocSWContext() => mallocz<SWContext>(_sizeOfSWContext);
+
+extension PointerSWContext on Pointer<SWContext> {
+  static final _postFrame = _ffilib.lookupFunction<
+      Int64 Function(Int64, Pointer<SWContext>, Pointer<AVFrame>),
+      int Function(int, Pointer<SWContext>, Pointer<AVFrame>)>(
+    'SWContext_postFrame',
+  );
+  int postFrame(int codecType, Pointer<AVFrame> packet) =>
+      _postFrame(codecType, this, packet);
+
+  // Future _waitHalfBuffer() => Future.delayed(
+  //     Duration(milliseconds: _ffiClassGet(this, 'audioBufferDuration') ~/ 2));
+
+  // Future<int> flushAudioBuffer() async {
+  //   int padding;
+  //   while ((padding = _ffiClassMethod(this, 'flushAudioBuffer')) < 0) {
+  //     await _waitHalfBuffer();
+  //   }
+  //   return padding - 1;
+  // }
+}
 
 class AVPacket extends Opaque {}
 
@@ -71,7 +122,7 @@ abstract class ProtocolRequest {
 
 extension PointerAVStream on Pointer<AVStream> {
   int get codecType => _ffiClassGet(this, 'codecType');
-  static final _getFramePts = ffilib.lookupFunction<
+  static final _getFramePts = _ffilib.lookupFunction<
       Int64 Function(Pointer<AVStream>, Pointer<AVFrame>),
       int Function(Pointer<AVStream>, Pointer<AVFrame>)>(
     'AVStream_getFramePts',
@@ -99,35 +150,6 @@ int _ioSeek(int opaque, int offset, int whence) {
   return _protocolRequests[opaque]?.seek(offset, whence) ?? _seekFailReturn;
 }
 
-extension PointerPlaybackClient on Pointer<PlaybackClient> {
-  static final _postFrame = ffilib.lookupFunction<
-      Int64 Function(Int64, Pointer<PlaybackClient>, Pointer<AVFrame>),
-      int Function(int, Pointer<PlaybackClient>, Pointer<AVFrame>)>(
-    'PlaybackClient_postFrame',
-  );
-  int postFrame(int codecType, Pointer<AVFrame> packet) =>
-      _postFrame(codecType, this, packet);
-
-  Future _waitHalfBuffer() => Future.delayed(
-      Duration(milliseconds: _ffiClassGet(this, 'audioBufferDuration') ~/ 2));
-
-  Future<int> flushAudioBuffer() async {
-    int padding;
-    while ((padding = _ffiClassMethod(this, 'flushAudioBuffer')) < 0) {
-      await _waitHalfBuffer();
-    }
-    return padding - 1;
-  }
-
-  void flushVideoBuffer() => _ffiClassMethod(this, 'flushVideoBuffer');
-
-  void start() => _ffiClassMethod(this, 'start');
-
-  void stop() => _ffiClassMethod(this, 'stop');
-
-  void close() => _ffiClassMethod(this, 'close');
-}
-
 class CodecContext {
   Pointer<AVCodecContext>? _this;
 
@@ -136,7 +158,7 @@ class CodecContext {
     if (_this!.address == 0) throw Exception('AVCodecContext create failed');
   }
 
-  static final _sendPacketAndGetFrame = ffilib.lookupFunction<
+  static final _sendPacketAndGetFrame = _ffilib.lookupFunction<
       Pointer<AVFrame> Function(Pointer<AVCodecContext>, Pointer<AVPacket>),
       Pointer<AVFrame> Function(Pointer<AVCodecContext>, Pointer<AVPacket>)>(
     'AVCodecContext_sendPacketAndGetFrame',
@@ -155,7 +177,7 @@ class CodecContext {
 class FormatContext {
   final ProtocolRequest _req;
   Pointer<AVFormatContext>? _this;
-  static final _create = ffilib.lookupFunction<
+  static final _create = _ffilib.lookupFunction<
       Pointer<AVFormatContext> Function(
           IntPtr,
           Int64,
@@ -182,7 +204,7 @@ class FormatContext {
     if (_this!.address == 0) throw Exception('AVFormatContext create failed');
   }
 
-  static final _close = ffilib.lookupFunction<
+  static final _close = _ffilib.lookupFunction<
       Void Function(Pointer<AVFormatContext>),
       void Function(Pointer<AVFormatContext>)>(
     'AVFormatContext_close',
@@ -196,7 +218,7 @@ class FormatContext {
 
   int getDuration() => _ffiClassGet(_this!, 'duration');
 
-  static final _seekTo = ffilib.lookupFunction<
+  static final _seekTo = _ffilib.lookupFunction<
       Int64 Function(
           Pointer<AVFormatContext>, Int64, Int64, Int64, Int64, Int64),
       int Function(Pointer<AVFormatContext>, int, int, int, int, int)>(
@@ -209,7 +231,7 @@ class FormatContext {
           int flags = 0}) =>
       _seekTo(_this!, streamIndex, minTs, ts, maxTs, flags);
 
-  static final _getPacket = ffilib.lookupFunction<
+  static final _getPacket = _ffilib.lookupFunction<
       Int64 Function(Pointer<AVFormatContext>, Pointer<Pointer<AVPacket>>),
       int Function(Pointer<AVFormatContext>, Pointer<Pointer<AVPacket>>)>(
     'AVFormatContext_getPacket',

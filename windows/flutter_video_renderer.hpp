@@ -23,7 +23,7 @@ public:
     texture_id_ = registrar_->RegisterTexture(texture_.get());
   }
 
-  void flushVideoBuffer()
+  void flushVideoBuffer(uint8_t *buffer, int width, int height)
   {
     if (width && height)
     {
@@ -35,12 +35,10 @@ public:
       if (pixel_buffer->width != width ||
           pixel_buffer->height != height)
       {
-        // rgb_buffer.reset(new uint8_t[buffer_size]);
         pixel_buffer->width = width;
         pixel_buffer->height = height;
-        pixel_buffer->buffer = _videoBuffer;
+        pixel_buffer->buffer = buffer;
       }
-      // memcpy_s(rgb_buffer.get(), buffer_size, _videoBuffer, buffer_size);
     }
     registrar_->MarkTextureFrameAvailable(texture_id_);
   }
@@ -48,11 +46,6 @@ public:
   ~FlutterVideoRenderer()
   {
     registrar_->UnregisterTexture(texture_id_);
-  }
-
-  void setPixelBuffer(FlutterDesktopPixelBuffer *buffer)
-  {
-    pixel_buffer.reset(buffer);
   }
 
   FlutterDesktopPixelBuffer *CopyPixelBuffer(

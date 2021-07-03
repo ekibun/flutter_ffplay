@@ -20,8 +20,6 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-             jni.cpp
-
              ${CXX_LIB_DIR}/ffi.cpp)
 
 include(${CXX_LIB_DIR}/ffmpeg.cmake)

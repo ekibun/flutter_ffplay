@@ -46,9 +46,9 @@ class FFMpegContext extends FormatContext {
 
   Future waitToStop() async => _playingFuture;
 
-  Future pause() {
+  Future pause() async {
     _pts?.playing = false;
-    _playback?.stop();
+    await _playback?.pause();
     if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
     return Future.value(_playingFuture);
   }
@@ -90,6 +90,7 @@ class FFMpegContext extends FormatContext {
     for (final codec in _codecs.values) {
       await codec.flush();
     }
+    await _playback?.stop();
     // seek
     await super.seekTo(
       ts,
@@ -119,7 +120,7 @@ class FFMpegContext extends FormatContext {
     bool _isPlaying() => _pts == pts && pts.playing;
     try {
       pts.playing = true;
-      _playback?.start();
+      await _playback?.resume();
       final streams = pts.streams.values.toList();
       pts.streams.forEach((codecType, stream) async {
         Future? lastUpdate;

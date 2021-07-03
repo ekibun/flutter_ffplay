@@ -10,8 +10,12 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif ()
 
 add_library(${PLUGIN_NAME} SHARED
-"${CMAKE_CURRENT_SOURCE_DIR}/mock.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/mock.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffi.cpp"
 )
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffmpeg.cmake")
+target_include_directories(${PLUGIN_NAME} PRIVATE "${FFMPEG_PATH}/include")
+
+target_link_libraries(${PLUGIN_NAME} PRIVATE
+  ${ffmpeg-lib})

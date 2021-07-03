@@ -7,35 +7,52 @@
 #define DEFINE_CLASS_METHOD_VOID(class, method) \
   DLLEXPORT int64_t class##_##method(class *p) { return p->method(), 0; }
 
-#include "ffi.h"
+#ifdef _MSC_VER
+#define DLLEXPORT __declspec(dllexport)
+#else
+#define DLLEXPORT __attribute__((visibility("default"))) __attribute__((used))
+#endif
 
 extern "C"
 {
+#include "libavformat/avformat.h"
+#include "libavcodec/avcodec.h"
+#include "libswresample/swresample.h"
+#include "libswscale/swscale.h"
+#include "libavutil/imgutils.h"
 
-  DLLEXPORT int64_t PlaybackClient_get_audioBufferDuration(PlaybackClient *audio)
+  struct SWContext
   {
-    return audio->bufferFrameCount * 1000 / audio->sampleRate;
-  }
+    // audio
+    int64_t sampleRate;
+    int64_t channels;
+    int64_t audioFormat = AV_SAMPLE_FMT_NONE;
+    uint8_t *audioBuffer = nullptr;
+    int64_t bufferSamples = 0;
+    // video
+    int64_t width = 0;
+    int64_t height = 0;
+    int64_t videoFormat = AV_SAMPLE_FMT_NONE;
+    uint8_t *videoBuffer = nullptr;
+    // opaque
+    SwrContext *_swrCtx = nullptr;
+    int64_t _srcChannelLayout = 0;
+    AVSampleFormat _srcAudioFormat = AV_SAMPLE_FMT_NONE;
+    int64_t _srcSampleRate = 0;
+    uint8_t *_audioBuffer1 = nullptr;
+    unsigned int _audioBufferLen = 0;
+    unsigned int _audioBufferLen1 = 0;
+    SwsContext *_swsCtx = nullptr;
+    AVPixelFormat _srcVideoFormat = AV_PIX_FMT_NONE;
+    unsigned int _videoBufferLen = 0;
+    uint8_t *_videoData[4];
+    int _linesize[4];
+  };
 
-  DLLEXPORT int64_t PlaybackClient_flushAudioBuffer(PlaybackClient *audio)
+  DLLEXPORT int64_t sizeOfSWContext()
   {
-    if (audio->audioOffset < audio->_nbSamples)
-    {
-      int offset = audio->writeBuffer(
-          audio->_audioBuffer1 + audio->audioOffset, audio->_nbSamples - audio->audioOffset);
-      if (offset < 0)
-        return 0;
-      audio->audioOffset += offset;
-      if (audio->audioOffset < audio->_nbSamples)
-        return audio->audioOffset - audio->_nbSamples;
-    }
-    return audio->getCurrentPadding() * AV_TIME_BASE / audio->sampleRate + 1;
+    return sizeof(SWContext);
   }
-
-  DEFINE_CLASS_METHOD_VOID(PlaybackClient, flushVideoBuffer)
-  DEFINE_CLASS_METHOD_VOID(PlaybackClient, start)
-  DEFINE_CLASS_METHOD_VOID(PlaybackClient, stop)
-  DEFINE_CLASS_METHOD_VOID(PlaybackClient, close)
 
   DEFINE_CLASS_GET_PROP(AVPacket, stream_index)
 
@@ -49,89 +66,107 @@ extern "C"
     av_frame_free(&frame);
   }
 
-  int64_t AudioClient_postFrame(PlaybackClient *audio, AVFrame *frame)
+  int64_t SWContext_postFrameAudio(SWContext *ctx, AVFrame *frame)
   {
-    if (!audio->_swrCtx || audio->_srcChannelLayout != frame->channel_layout || audio->_srcAudioFormat != frame->format || audio->_srcSampleRate != frame->sample_rate)
+    if (ctx->audioFormat == AV_SAMPLE_FMT_NONE)
+      return -1;
+    if (!ctx->_swrCtx ||
+        ctx->_srcChannelLayout != frame->channel_layout ||
+        ctx->_srcAudioFormat != frame->format ||
+        ctx->_srcSampleRate != frame->sample_rate)
     {
-      if (audio->_swrCtx)
-        swr_free(&audio->_swrCtx);
-      audio->_swrCtx = swr_alloc_set_opts(
+      if (ctx->_swrCtx)
+        swr_free(&ctx->_swrCtx);
+      ctx->_swrCtx = swr_alloc_set_opts(
           nullptr,
-          av_get_default_channel_layout(audio->channels),
-          audio->format,
-          audio->sampleRate,
+          av_get_default_channel_layout(ctx->channels),
+          (AVSampleFormat)ctx->audioFormat,
+          ctx->sampleRate,
           frame->channel_layout,
           (AVSampleFormat)frame->format,
           frame->sample_rate, 0, nullptr);
-      if (!audio->_swrCtx || swr_init(audio->_swrCtx) < 0)
+      if (!ctx->_swrCtx || swr_init(ctx->_swrCtx) < 0)
         return -1;
-      audio->_srcChannelLayout = frame->channel_layout;
-      audio->_srcAudioFormat = (AVSampleFormat)frame->format;
-      audio->_srcSampleRate = frame->sample_rate;
+      ctx->_srcChannelLayout = frame->channel_layout;
+      ctx->_srcAudioFormat = (AVSampleFormat)frame->format;
+      ctx->_srcSampleRate = frame->sample_rate;
     }
     int inCount = frame->nb_samples;
-    int outCount = inCount * audio->sampleRate / frame->sample_rate + 256;
-    int outSize = av_samples_get_buffer_size(nullptr, audio->channels, outCount, audio->format, 0);
+    int outCount = inCount * ctx->sampleRate / frame->sample_rate + 256;
+    int outSize = av_samples_get_buffer_size(
+        nullptr, ctx->channels, outCount, (AVSampleFormat)ctx->audioFormat, 0);
     if (outSize < 0)
       return -2;
-    av_fast_malloc(&audio->_audioBuffer, &audio->_audioBufferLen, outSize);
-    if (!audio->_audioBuffer)
+    av_fast_malloc(&ctx->_audioBuffer1, &ctx->_audioBufferLen, outSize);
+    if (!ctx->_audioBuffer1)
       return -3;
-    audio->_nbSamples =
-        swr_convert(audio->_swrCtx, &audio->_audioBuffer, outCount, (const uint8_t **)frame->extended_data, inCount);
-    uint8_t *buffer = audio->_audioBuffer;
-    unsigned int bufferLen = audio->_audioBufferLen;
-    audio->_audioBuffer = audio->_audioBuffer1;
-    audio->_audioBufferLen = audio->_audioBufferLen1;
-    audio->_audioBuffer1 = buffer;
-    audio->_audioBufferLen1 = bufferLen;
-    audio->audioOffset = 0;
+    ctx->bufferSamples =
+        swr_convert(ctx->_swrCtx, &ctx->_audioBuffer1, outCount, (const uint8_t **)frame->extended_data, inCount);
+    uint8_t *buffer = ctx->_audioBuffer1;
+    unsigned int bufferLen = ctx->_audioBufferLen1;
+    ctx->_audioBuffer1 = ctx->audioBuffer;
+    ctx->_audioBufferLen1 = ctx->_audioBufferLen;
+    ctx->audioBuffer = buffer;
+    ctx->_audioBufferLen = bufferLen;
     return 0;
   }
 
-  DLLEXPORT int64_t PlaybackClient_postFrame(int64_t type, PlaybackClient *playback, AVFrame *frame)
+  DLLEXPORT int64_t SWContext_postFrameVideo(SWContext *ctx, AVFrame *frame)
   {
-    if (type == AVMEDIA_TYPE_AUDIO)
-      return AudioClient_postFrame(playback, frame);
-    if (!playback->_swsCtx || playback->width != frame->width || playback->height != frame->height || playback->_srcVideoFormat != frame->format)
+    if (!ctx->_swsCtx ||
+        ctx->width != frame->width ||
+        ctx->height != frame->height ||
+        ctx->_srcVideoFormat != frame->format)
     {
-      if (playback->_swsCtx)
-        sws_freeContext(playback->_swsCtx);
-      playback->_swsCtx = nullptr;
+      if (ctx->_swsCtx)
+        sws_freeContext(ctx->_swsCtx);
+      ctx->_swsCtx = nullptr;
       int bufSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, frame->width, frame->height, 1);
-      playback->width = frame->width;
-      playback->height = frame->height;
-      av_fast_malloc(&playback->_videoBuffer, &playback->_videoBufferLen, bufSize);
-      if (!playback->_videoBuffer)
+      ctx->width = frame->width;
+      ctx->height = frame->height;
+      av_fast_malloc(&ctx->videoBuffer, &ctx->_videoBufferLen, bufSize);
+      if (!ctx->videoBuffer)
         return -1;
       av_image_fill_arrays(
-          playback->videoData,
-          playback->linesize,
-          playback->_videoBuffer,
+          ctx->_videoData,
+          ctx->_linesize,
+          ctx->videoBuffer,
           AV_PIX_FMT_RGBA,
-          playback->width,
-          playback->height, 1);
-      playback->_swsCtx = sws_getContext(
+          ctx->width,
+          ctx->height, 1);
+      ctx->_swsCtx = sws_getContext(
           frame->width,
           frame->height,
           (AVPixelFormat)frame->format,
-          playback->width,
-          playback->height,
+          ctx->width,
+          ctx->height,
           AV_PIX_FMT_RGBA,
           SWS_POINT,
           nullptr, nullptr, nullptr);
     }
-    if (!playback->_swsCtx)
+    if (!ctx->_swsCtx)
       return -1;
     sws_scale(
-        playback->_swsCtx,
+        ctx->_swsCtx,
         frame->data,
         frame->linesize,
         0,
         frame->height,
-        playback->videoData,
-        playback->linesize);
+        ctx->_videoData,
+        ctx->_linesize);
     return 0;
+  }
+  DLLEXPORT int64_t SWContext_postFrame(int64_t type, SWContext *ctx, AVFrame *frame)
+  {
+    switch (type)
+    {
+    case AVMEDIA_TYPE_AUDIO:
+      return SWContext_postFrameAudio(ctx, frame);
+    case AVMEDIA_TYPE_VIDEO:
+      return SWContext_postFrameVideo(ctx, frame);
+    default:
+      return -1;
+    }
   }
 
   DLLEXPORT int64_t AVStream_get_codecType(AVStream *stream)

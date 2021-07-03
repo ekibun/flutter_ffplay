@@ -1,9 +1,8 @@
 // @dart=2.9
+import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tools/src/base/io.dart';
 import 'package:flutter_tools/src/base/terminal.dart';
@@ -16,30 +15,9 @@ import 'package:process/process.dart';
 
 // ignore: avoid_relative_lib_imports
 import '../example/lib/protocol.dart';
-import 'package:ffmpeg/src/ffi.dart';
-
-final createMockPlayback = ffilib.lookupFunction<
-    Pointer<PlaybackClient> Function(), Pointer<PlaybackClient> Function()>(
-  'Mock_createPlayback',
-);
+import 'mock.dart';
 
 void main() {
-  const MethodChannel channel = MethodChannel('ffmpeg');
-
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    channel.setMockMethodCallHandler((MethodCall methodCall) async {
-      if (methodCall.method == 'createPlayback') {
-        return createMockPlayback().address;
-      }
-      return 0;
-    });
-  });
-
-  tearDown(() {
-    channel.setMockMethodCallHandler(null);
-  });
   test('make', () async {
     const platform = LocalPlatform();
     final utf8Encoding = Encoding.getByName('utf-8');
@@ -96,7 +74,7 @@ void main() {
   test('get stream info', () async {
     const url = 'D:/CloudMusic/seven oops - オレンジ.flac';
     final protocol = await FileRequest.open(url);
-    final ctx = FFMpegContext(protocol, await Playback.create());
+    final ctx = FFMpegContext(protocol, MockPlayback());
     final streams = await ctx.getStreams();
     // ignore: avoid_print
     print(streams);
@@ -105,5 +83,5 @@ void main() {
     await Future.delayed(const Duration(seconds: 5));
     await ctx.seekTo(30 * AV_TIME_BASE);
     await Future.delayed(const Duration(seconds: 30));
-  });
+  }, timeout: Timeout.none);
 }
