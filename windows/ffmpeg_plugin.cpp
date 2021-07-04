@@ -79,86 +79,44 @@ namespace
               {"channels", renderer->channels},
               {"audioFormat", renderer->audioFormat},
               {"videoFormat", AV_PIX_FMT_RGBA}});
+      return;
     }
-    else if (method_call.method_name().compare("flushAudioBuffer") == 0)
+    auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
+    if (pargs == nullptr)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
-      auto buffer = (uint8_t *)getIntVariant(args[flutter::EncodableValue("buffer")]);
-      auto length = getIntVariant(args[flutter::EncodableValue("length")]);
+      result->Error("flushVideoBuffer", "Invalid arguments");
+      return;
+    };
+    auto args = (*pargs);
+    auto ctx = (FlutterVideoRenderer *)getIntVariant(args["ctx"]);
+    if (method_call.method_name().compare("flushAudioBuffer") == 0)
+    {
+      auto buffer = (uint8_t *)getIntVariant(args["buffer"]);
+      auto length = getIntVariant(args["length"]);
       result->Success(ctx->flushAudioBuffer(buffer, length));
     }
     else if (method_call.method_name().compare("flushVideoBuffer") == 0)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
-      auto buffer = (uint8_t *)getIntVariant(args[flutter::EncodableValue("buffer")]);
-      auto width = getIntVariant(args[flutter::EncodableValue("width")]);
-      auto height = getIntVariant(args[flutter::EncodableValue("height")]);
+      auto buffer = (uint8_t *)getIntVariant(args["buffer"]);
+      auto width = getIntVariant(args["width"]);
+      auto height = getIntVariant(args["height"]);
       ctx->flushVideoBuffer(buffer, width, height);
       result->Success();
     }
     else if (method_call.method_name().compare("pause") == 0)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
-      ctx->pause();
-      result->Success();
+      result->Success(ctx->pause());
     }
     else if (method_call.method_name().compare("resume") == 0)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
-      ctx->resume();
-      result->Success();
+      result->Success(ctx->resume());
     }
     else if (method_call.method_name().compare("stop") == 0)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
-      ctx->stop();
-      result->Success();
+      result->Success(ctx->stop());
     }
     else if (method_call.method_name().compare("close") == 0)
     {
-      auto pargs = std::get_if<flutter::EncodableMap>(method_call.arguments());
-      if (pargs == nullptr)
-      {
-        result->Error("flushVideoBuffer", "Invalid arguments");
-        return;
-      };
-      auto args = (*pargs);
-      auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
       delete ctx;
       result->Success();
     }

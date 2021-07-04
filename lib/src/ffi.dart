@@ -62,7 +62,7 @@ class SWContext extends Struct {
   external int audioFormat;
   external Pointer<Uint8> audioBuffer;
   @Int64()
-  external int bufferSamples;
+  external int audioBufferSize;
   @Int64()
   external int width;
   @Int64()
@@ -70,6 +70,8 @@ class SWContext extends Struct {
   @Int64()
   external int videoFormat;
   external Pointer<Uint8> videoBuffer;
+  @Int64()
+  external int videoBufferSize;
 }
 
 final int _sizeOfSWContext = _ffilib

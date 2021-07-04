@@ -2,9 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/ffmpeg.iml" filepath="$PROJECT_DIR$/ffmpeg.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android/ffmpeg_android.iml" filepath="$PROJECT_DIR$/android/ffmpeg_android.iml" />
-      <module fileurl="file://$PROJECT_DIR$/example/android/ffmpeg_example_android.iml" filepath="$PROJECT_DIR$/example/android/ffmpeg_example_android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/ffmpeg.iml" filepath="$PROJECT_DIR$/.idea/ffmpeg.iml" />
     </modules>
   </component>
 </project>

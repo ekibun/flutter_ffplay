@@ -39,12 +39,13 @@ abstract class Playback {
     switch (codecType) {
       case ffi.AVMediaType.AUDIO:
         final offset =
-            await _flushAudioBuffer(sw.ref.audioBuffer, sw.ref.bufferSamples);
+            await _flushAudioBuffer(sw.ref.audioBuffer, sw.ref.audioBufferSize);
         return offset <= 0
             ? -1
             : frame.timestamp - offset * ffi.AV_TIME_BASE ~/ sw.ref.sampleRate;
       case ffi.AVMediaType.VIDEO:
-        flushVideoBuffer(sw.ref.videoBuffer, sw.ref.width, sw.ref.height);
+        flushVideoBuffer(sw.ref.videoBuffer, sw.ref.videoBufferSize,
+            sw.ref.width, sw.ref.height);
         return -1;
     }
     return -1;
@@ -66,9 +67,17 @@ abstract class Playback {
     }
   }
 
-  Future<int> flushAudioBuffer(Pointer<Uint8> buffer, int length);
+  Future<int> flushAudioBuffer(
+    Pointer<Uint8> buffer,
+    int length,
+  );
 
-  Future flushVideoBuffer(Pointer<Uint8> buffer, int width, int height);
+  Future flushVideoBuffer(
+    Pointer<Uint8> buffer,
+    int length,
+    int width,
+    int height,
+  );
 
   Future resume();
 
@@ -90,20 +99,28 @@ class _PlaybackImpl extends Playback {
       int audioFormat, int videoFormat)
       : super(textureId, sampleRate, channels, audioFormat, videoFormat);
 
+  static Map _encodePointer(Pointer<Uint8> buffer, int length) =>
+      Platform.isAndroid
+          ? {"buffer": buffer.asTypedList(length) }
+          : {
+              "buffer": buffer.address,
+              "length": length,
+            };
+
   @override
   Future<int> flushAudioBuffer(Pointer<Uint8> buffer, int length) async {
     return await _channel.invokeMethod("flushAudioBuffer", {
       "ctx": _ctx!,
-      "buffer": buffer.address,
-      "length": length,
+      ..._encodePointer(buffer, length),
     });
   }
 
   @override
-  Future flushVideoBuffer(Pointer<Uint8> buffer, int width, int height) async {
+  Future flushVideoBuffer(
+      Pointer<Uint8> buffer, int length, int width, int height) async {
     return await _channel.invokeMethod("flushVideoBuffer", {
       "ctx": _ctx!,
-      "buffer": buffer.address,
+      ..._encodePointer(buffer, length),
       "width": width,
       "height": height,
     });

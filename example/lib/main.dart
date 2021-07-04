@@ -89,7 +89,7 @@ class _MyAppState extends State<MyApp> {
               ],
             ),
             Expanded(
-              child: (_playback?.textureId ?? 0) != 0
+              child: (_playback?.textureId ?? -1) != -1
                   ? Texture(textureId: _playback!.textureId)
                   : const SizedBox(),
             ),

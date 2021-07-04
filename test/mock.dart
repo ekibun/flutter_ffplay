@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import 'package:ffmpeg/ffmpeg.dart';
 
@@ -66,5 +67,5 @@ class MockPlayback extends Playback {
   }
 
   @override
-  Future flushVideoBuffer(Pointer<Uint8> buffer, int width, int height) async {}
+  Future flushVideoBuffer(Pointer<Uint8> buffer, int length, int width, int height) async {}
 }
