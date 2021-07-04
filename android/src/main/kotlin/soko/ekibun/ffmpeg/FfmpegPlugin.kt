@@ -33,6 +33,7 @@ class FfmpegPlugin : FlutterPlugin, MethodCallHandler {
       result.success(mapOf(
               "ctx" to key,
               "textureId" to ctx.textureId,
+              "audioBufferTime" to ctx.audioBufferSize * 1000 / ctx.channels / ctx.sampleRate,
               "sampleRate" to ctx.sampleRate,
               "channels" to ctx.channels,
               "audioFormat" to ctx.audioFormat,
@@ -49,9 +50,11 @@ class FfmpegPlugin : FlutterPlugin, MethodCallHandler {
     val ctx = PlaybackImpl.get(key)
     when (call.method) {
       "flushAudioBuffer" -> result.success(ctx.flushAudioBuffer(
-              call.argument("buffer")!!))
+              call.argument("buffer")!!,
+              call.argument("length")!!))
       "flushVideoBuffer" -> result.success(ctx.flushVideoBuffer(
               call.argument("buffer")!!,
+              call.argument("length")!!,
               call.argument("width")!!,
               call.argument("height")!!))
       "pause" -> result.success(ctx.pause())

@@ -101,8 +101,10 @@ extern "C"
     av_fast_malloc(&ctx->_audioBuffer1, &ctx->_audioBufferLen, outSize);
     if (!ctx->_audioBuffer1)
       return -3;
-    ctx->audioBufferSize =
+    int frameCount =
         swr_convert(ctx->_swrCtx, &ctx->_audioBuffer1, outCount, (const uint8_t **)frame->extended_data, inCount);
+    ctx->audioBufferSize = av_samples_get_buffer_size(
+        nullptr, ctx->channels, frameCount, (AVSampleFormat)ctx->audioFormat, 0);
     uint8_t *buffer = ctx->_audioBuffer1;
     unsigned int bufferLen = ctx->_audioBufferLen1;
     ctx->_audioBuffer1 = ctx->audioBuffer;
@@ -122,7 +124,7 @@ extern "C"
       if (ctx->_swsCtx)
         sws_freeContext(ctx->_swsCtx);
       ctx->_swsCtx = nullptr;
-      ctx->videoBufferSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, frame->width, frame->height, 1);
+      ctx->videoBufferSize = av_image_get_buffer_size((AVPixelFormat)ctx->videoFormat, frame->width, frame->height, 1);
       if (!ctx->videoBufferSize)
         return -1;
       ctx->width = frame->width;
@@ -134,7 +136,7 @@ extern "C"
           ctx->_videoData,
           ctx->_linesize,
           ctx->videoBuffer,
-          AV_PIX_FMT_RGBA,
+          (AVPixelFormat)ctx->videoFormat,
           ctx->width,
           ctx->height, 1);
       ctx->_swsCtx = sws_getContext(

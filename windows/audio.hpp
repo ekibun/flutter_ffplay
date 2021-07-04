@@ -67,7 +67,7 @@ class AudioClientImpl
   }
 
 public:
-  uint32_t bufferFrameCount;
+  uint32_t audioBufferFrameSize;
   int64_t channels;
   AVSampleFormat audioFormat;
   int64_t sampleRate;
@@ -83,20 +83,24 @@ public:
   {
     if (length <= 0)
       return getCurrentPadding();
+    int bytesPerFrame = av_get_bytes_per_sample(audioFormat) * channels;
+    if (bytesPerFrame == 0)
+      return -1;
+    length /= bytesPerFrame;
     if (!pRenderClient)
       return -1;
-    int requestBuffer = min(bufferFrameCount - getCurrentPadding(), length);
+    int requestBuffer = min(audioBufferFrameSize - getCurrentPadding(), length);
     if (requestBuffer == 0)
       return 0;
     uint8_t *buffer;
     pRenderClient->GetBuffer(requestBuffer, &buffer);
     if (!buffer)
       return -1;
-    int count = requestBuffer * av_get_bytes_per_sample(audioFormat) * channels;
+    int count = requestBuffer * bytesPerFrame;
     memcpy_s(buffer, count, data, count);
     if (pRenderClient->ReleaseBuffer(requestBuffer, 0) < 0)
       return -1;
-    return requestBuffer;
+    return count;
   }
   int resume()
   {
@@ -165,8 +169,8 @@ public:
       audioFormat = getSampleFormat(pwfx);
       if (pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 10000000, 0, pwfx, NULL) < 0)
         throw std::exception("IAudioClient Initialize failed");
-      pAudioClient->GetBufferSize(&bufferFrameCount);
-      if (bufferFrameCount <= 0)
+      pAudioClient->GetBufferSize(&audioBufferFrameSize);
+      if (audioBufferFrameSize <= 0)
         throw std::exception("IAudioClient GetBufferSize failed");
       pAudioClient->GetService(
           IID_IAudioRenderClient,

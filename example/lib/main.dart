@@ -88,11 +88,13 @@ class _MyAppState extends State<MyApp> {
                 ),
               ],
             ),
-            Expanded(
-              child: (_playback?.textureId ?? -1) != -1
-                  ? Texture(textureId: _playback!.textureId)
-                  : const SizedBox(),
-            ),
+            (_playback?.textureId ?? -1) != -1
+                ? Center(
+                    child: AspectRatio(
+                    aspectRatio: _playback!.aspectRatio,
+                    child: Texture(textureId: _playback!.textureId),
+                  ))
+                : const SizedBox(),
             Row(
               children: [
                 IconButton(

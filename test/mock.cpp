@@ -12,7 +12,7 @@ struct _PlaybackCtx
   int64_t sampleRate;
   int64_t channels;
   int64_t audioFormat;
-  int64_t bufferFrameCount;
+  int64_t audioBufferTime;
   AudioClientImpl *ctx;
 };
 
@@ -25,7 +25,7 @@ extern "C"
         audio->sampleRate,
         audio->channels,
         audio->audioFormat,
-        audio->bufferFrameCount,
+        audio->audioBufferFrameSize * 1000 / audio->sampleRate,
         audio};
   }
 

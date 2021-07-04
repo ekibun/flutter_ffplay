@@ -75,6 +75,7 @@ namespace
           flutter::EncodableMap{
               {"ctx", (int64_t)renderer},
               {"textureId", renderer->texture_id()},
+              {"audioBufferTime", renderer->audioBufferFrameSize * 1000 / renderer->sampleRate},
               {"sampleRate", renderer->sampleRate},
               {"channels", renderer->channels},
               {"audioFormat", renderer->audioFormat},
@@ -88,18 +89,18 @@ namespace
       return;
     };
     auto args = (*pargs);
-    auto ctx = (FlutterVideoRenderer *)getIntVariant(args["ctx"]);
+    auto ctx = (FlutterVideoRenderer *)getIntVariant(args[flutter::EncodableValue("ctx")]);
     if (method_call.method_name().compare("flushAudioBuffer") == 0)
     {
-      auto buffer = (uint8_t *)getIntVariant(args["buffer"]);
-      auto length = getIntVariant(args["length"]);
+      auto buffer = (uint8_t *)getIntVariant(args[flutter::EncodableValue("buffer")]);
+      auto length = getIntVariant(args[flutter::EncodableValue("length")]);
       result->Success(ctx->flushAudioBuffer(buffer, length));
     }
     else if (method_call.method_name().compare("flushVideoBuffer") == 0)
     {
-      auto buffer = (uint8_t *)getIntVariant(args["buffer"]);
-      auto width = getIntVariant(args["width"]);
-      auto height = getIntVariant(args["height"]);
+      auto buffer = (uint8_t *)getIntVariant(args[flutter::EncodableValue("buffer")]);
+      auto width = getIntVariant(args[flutter::EncodableValue("width")]);
+      auto height = getIntVariant(args[flutter::EncodableValue("height")]);
       ctx->flushVideoBuffer(buffer, width, height);
       result->Success();
     }

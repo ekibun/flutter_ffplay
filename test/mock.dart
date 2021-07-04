@@ -1,5 +1,4 @@
 import 'dart:ffi';
-import 'dart:typed_data';
 
 import 'package:ffmpeg/ffmpeg.dart';
 
@@ -13,7 +12,7 @@ class _PlaybackCtx extends Struct {
   @Int64()
   external int audioFormat;
   @Int64()
-  external int bufferFrameCount;
+  external int audioBufferTime;
   external Pointer ctx;
 
   int _invoke(String method) {
@@ -39,7 +38,7 @@ class MockPlayback extends Playback {
   _PlaybackCtx _ctx;
   MockPlayback._(
     this._ctx,
-  ) : super(0, _ctx.sampleRate, _ctx.channels, _ctx.audioFormat, -1);
+  ) : super(0, _ctx.audioBufferTime, _ctx.sampleRate, _ctx.channels, _ctx.audioFormat, -1);
 
   factory MockPlayback() {
     return MockPlayback._(_createMockPlayback());

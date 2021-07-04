@@ -3,9 +3,19 @@ part of '../ffmpeg.dart';
 abstract class Playback {
   Pointer<ffi.SWContext>? _sw;
   final int textureId;
+  final int audioBufferTime;
+
+  int get width => _sw?.ref.width ?? 0;
+  int get height => _sw?.ref.height ?? 0;
+
+  double get aspectRatio {
+    final _h = height;
+    return _h == 0 ? 1 : width / _h;
+  }
 
   Playback(
     this.textureId,
+    this.audioBufferTime,
     int sampleRate,
     int channels,
     int audioFormat,
@@ -23,6 +33,7 @@ abstract class Playback {
     return _PlaybackImpl._(
       data["ctx"],
       data["textureId"],
+      data["audioBufferTime"],
       data["sampleRate"],
       data["channels"],
       data["audioFormat"],
@@ -62,8 +73,7 @@ abstract class Playback {
       if (o < 0) return -1;
       offset += o;
       if (offset >= length) continue;
-      if (_sw == null) return -1;
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: audioBufferTime ~/ 2));
     }
   }
 
@@ -95,23 +105,17 @@ const _channel = MethodChannel('ffmpeg');
 
 class _PlaybackImpl extends Playback {
   int? _ctx;
-  _PlaybackImpl._(this._ctx, int textureId, int sampleRate, int channels,
-      int audioFormat, int videoFormat)
-      : super(textureId, sampleRate, channels, audioFormat, videoFormat);
-
-  static Map _encodePointer(Pointer<Uint8> buffer, int length) =>
-      Platform.isAndroid
-          ? {"buffer": buffer.asTypedList(length) }
-          : {
-              "buffer": buffer.address,
-              "length": length,
-            };
+  _PlaybackImpl._(this._ctx, int textureId, int audioBufferSize, int sampleRate,
+      int channels, int audioFormat, int videoFormat)
+      : super(textureId, audioBufferSize, sampleRate, channels, audioFormat,
+            videoFormat);
 
   @override
   Future<int> flushAudioBuffer(Pointer<Uint8> buffer, int length) async {
     return await _channel.invokeMethod("flushAudioBuffer", {
       "ctx": _ctx!,
-      ..._encodePointer(buffer, length),
+      "buffer": buffer.address,
+      "length": length,
     });
   }
 
@@ -120,7 +124,8 @@ class _PlaybackImpl extends Playback {
       Pointer<Uint8> buffer, int length, int width, int height) async {
     return await _channel.invokeMethod("flushVideoBuffer", {
       "ctx": _ctx!,
-      ..._encodePointer(buffer, length),
+      "buffer": buffer.address,
+      "length": length,
       "width": width,
       "height": height,
     });
