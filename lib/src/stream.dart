@@ -14,11 +14,12 @@ class FFMpegStream implements _IsolateEncodable {
       };
 
   static FFMpegStream? _decode(Map data) {
-    if (data.containsKey(#streamPtr))
+    if (data.containsKey(#streamPtr)) {
       return FFMpegStream._(
         data[#streamIndex],
         Pointer.fromAddress(data[#streamPtr]),
       );
+    }
     return null;
   }
 }

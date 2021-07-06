@@ -3,7 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-  ffmpeg
+  flutter_ffplay
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)

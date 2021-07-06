@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:ffi';
 
 import 'dart:io';
@@ -52,6 +54,8 @@ int _ffiClassMethod<C extends NativeType>(Pointer<C> obj, String method) {
 class AVFormatContext extends Opaque {}
 
 class AVCodecContext extends Opaque {}
+
+class AVIOContext extends Opaque {}
 
 class SWContext extends Struct {
   @Int64()
@@ -112,12 +116,13 @@ class AVStream extends Opaque {}
 
 class AVFrame extends Opaque {}
 
-abstract class ProtocolRequest {
+abstract class IOContext {
   final int bufferSize;
-  int read(Pointer<Uint8> buf, int size);
-  int seek(int offset, int whence);
-  Future close();
-  ProtocolRequest(
+  int open(String url);
+  int close(int ctx);
+  int read(int id, Pointer<Uint8> buf, int size);
+  int seek(int id, int offset, int whence);
+  IOContext(
     this.bufferSize,
   );
 }
@@ -139,17 +144,6 @@ extension PointerAVFrame on Pointer<AVFrame> {
 extension PointerAVPacket on Pointer<AVPacket> {
   int get streamIndex => _ffiClassGet(this, 'stream_index');
   void close() => _ffiClassMethod(this, 'close');
-}
-
-final Map<int, ProtocolRequest> _protocolRequests = {};
-const _readFailReturn = -1;
-int _ioReadPacket(int opaque, Pointer<Uint8> buf, int bufSize) {
-  return _protocolRequests[opaque]?.read(buf, bufSize) ?? _readFailReturn;
-}
-
-const _seekFailReturn = -1;
-int _ioSeek(int opaque, int offset, int whence) {
-  return _protocolRequests[opaque]?.seek(offset, whence) ?? _seekFailReturn;
 }
 
 class CodecContext {
@@ -176,35 +170,105 @@ class CodecContext {
   void flush() => _ffiClassMethod(_this!, 'flush');
 }
 
+final _ioContext_create = _ffilib.lookupFunction<
+    Pointer<AVIOContext> Function(
+        IntPtr,
+        Int64,
+        Pointer<NativeFunction<Int32 Function(IntPtr, Pointer<Uint8>, Int32)>>,
+        Pointer<NativeFunction<Int64 Function(IntPtr, Int64, Int32)>>),
+    Pointer<AVIOContext> Function(
+        int,
+        int,
+        Pointer<NativeFunction<Int32 Function(IntPtr, Pointer<Uint8>, Int32)>>,
+        Pointer<NativeFunction<Int64 Function(IntPtr, Int64, Int32)>>)>(
+  'AVIOContext_create',
+);
+
+final Map<int, FormatContext> _pointerToContext = {};
+final Map<int, FormatContext> _keyToContext = {};
+final Map<int, int> _pointerToKey = {};
+const _ffiFailReturn = -1;
+int _ioOpen(Pointer<AVFormatContext> s, Pointer<Pointer<AVIOContext>> pb,
+    Pointer<Utf8> url, int flag, Pointer options) {
+  final urlStr = url.toDartString();
+  final format = _pointerToContext[s.address];
+  final key = format!._io.open(urlStr);
+  final ctx = _ioContext_create(
+      key,
+      format._io.bufferSize,
+      Pointer.fromFunction(_ioReadPacket, _ffiFailReturn),
+      Pointer.fromFunction(_ioSeek, _ffiFailReturn));
+  _keyToContext[key] = format;
+  _pointerToKey[ctx.address] = key;
+  pb.value = ctx;
+  return 0;
+}
+
+int _ioClose(Pointer<AVFormatContext> s, Pointer<AVIOContext> pb) {
+  final key = _pointerToKey.remove(pb.address)!;
+  return _keyToContext.remove(key)!._io.close(key);
+}
+
+int _ioReadPacket(int opaque, Pointer<Uint8> buf, int bufSize) {
+  return _keyToContext[opaque]!._io.read(opaque, buf, bufSize);
+}
+
+int _ioSeek(int opaque, int offset, int whence) {
+  return _keyToContext[opaque]!._io.seek(opaque, offset, whence);
+}
+
 class FormatContext {
-  final ProtocolRequest _req;
+  final IOContext _io;
   Pointer<AVFormatContext>? _this;
   static final _create = _ffilib.lookupFunction<
       Pointer<AVFormatContext> Function(
-          IntPtr,
-          Int64,
           Pointer<
-              NativeFunction<Int32 Function(IntPtr, Pointer<Uint8>, Int32)>>,
-          Pointer<NativeFunction<Int64 Function(IntPtr, Int64, Int32)>>),
+              NativeFunction<
+                  IntPtr Function(
+                      Pointer<AVFormatContext>,
+                      Pointer<Pointer<AVIOContext>>,
+                      Pointer<Utf8>,
+                      IntPtr,
+                      Pointer)>>,
+          Pointer<
+              NativeFunction<
+                  IntPtr Function(
+                      Pointer<AVFormatContext>, Pointer<AVIOContext>)>>),
       Pointer<AVFormatContext> Function(
-          int,
-          int,
           Pointer<
-              NativeFunction<Int32 Function(IntPtr, Pointer<Uint8>, Int32)>>,
-          Pointer<NativeFunction<Int64 Function(IntPtr, Int64, Int32)>>)>(
+              NativeFunction<
+                  IntPtr Function(
+                      Pointer<AVFormatContext>,
+                      Pointer<Pointer<AVIOContext>>,
+                      Pointer<Utf8>,
+                      IntPtr,
+                      Pointer)>>,
+          Pointer<
+              NativeFunction<
+                  IntPtr Function(
+                      Pointer<AVFormatContext>, Pointer<AVIOContext>)>>)>(
     'AVFormatContext_create',
   );
 
-  FormatContext(this._req) {
-    final idReq = identityHashCode(_req);
-    _protocolRequests[idReq] = _req;
-    _this = _create(
-        idReq,
-        _req.bufferSize,
-        Pointer.fromFunction(_ioReadPacket, _readFailReturn),
-        Pointer.fromFunction(_ioSeek, _seekFailReturn));
-    if (_this!.address == 0) throw Exception('AVFormatContext create failed');
+  FormatContext(String url, this._io) {
+    final __this = _this = _create(
+        Pointer.fromFunction(_ioOpen, _ffiFailReturn),
+        Pointer.fromFunction(_ioClose, _ffiFailReturn));
+    if (__this.address == 0) throw Exception('AVFormatContext create failed');
+    _pointerToContext[__this.address] = this;
+    final ret = _open(__this, url.toNativeUtf8());
+    if (ret < 0) {
+      _this = null;
+      _pointerToContext.remove(__this.address);
+      throw Exception('AVFormatContext open failed: $ret');
+    }
   }
+
+  static final _open = _ffilib.lookupFunction<
+      Int64 Function(Pointer<AVFormatContext>, Pointer<Utf8>),
+      int Function(Pointer<AVFormatContext>, Pointer<Utf8>)>(
+    'AVFormatContext_open',
+  );
 
   static final _close = _ffilib.lookupFunction<
       Void Function(Pointer<AVFormatContext>),
@@ -212,10 +276,10 @@ class FormatContext {
     'AVFormatContext_close',
   );
   Future close() async {
-    _close(_this!);
+    final __this = _this;
     _this = null;
-    await _req.close();
-    _protocolRequests.remove(identityHashCode(_req));
+    _pointerToContext.remove(__this);
+    _close(__this!);
   }
 
   int getDuration() => _ffiClassGet(_this!, 'duration');

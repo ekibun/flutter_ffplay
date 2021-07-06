@@ -51,7 +51,7 @@ abstract class Playback {
       case ffi.AVMediaType.AUDIO:
         final offset =
             await _flushAudioBuffer(sw.ref.audioBuffer, sw.ref.audioBufferSize);
-        return offset <= 0
+        return offset < 0
             ? -1
             : frame.timestamp - offset * ffi.AV_TIME_BASE ~/ sw.ref.sampleRate;
       case ffi.AVMediaType.VIDEO:
@@ -77,6 +77,8 @@ abstract class Playback {
     }
   }
 
+  Future reset() => flushVideoBuffer(Pointer.fromAddress(0), 0, 0, 0);
+
   Future<int> flushAudioBuffer(
     Pointer<Uint8> buffer,
     int length,
@@ -101,7 +103,7 @@ abstract class Playback {
   }
 }
 
-const _channel = MethodChannel('ffmpeg');
+const _channel = MethodChannel('flutter_ffplay');
 
 class _PlaybackImpl extends Playback {
   int? _ctx;

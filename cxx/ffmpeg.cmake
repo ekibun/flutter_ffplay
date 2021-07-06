@@ -11,9 +11,6 @@ if (WIN32)
   set(FFMPEG_PATH "${CMAKE_CURRENT_LIST_DIR}/build/win32_x86_64")
   
   set(ffmpeg-lib
-    "${FFMPEG_PATH}/lib/libmingwex.a"
-    "${FFMPEG_PATH}/lib/libmingw32.a"
-    "${FFMPEG_PATH}/lib/libgcc.a"
     bcrypt
   )
 endif ()

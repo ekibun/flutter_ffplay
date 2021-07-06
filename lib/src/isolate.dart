@@ -96,7 +96,7 @@ final _isolateDecoders = <_DecodeFunc>[
   FFMpegStream._decode,
   _IsolateFunction._decode,
   IsolateError._decode,
-  ProtocolRequest._decode,
+  IOHandler._decode,
 ];
 
 void _runIsolate(Map spawnMessage) async {

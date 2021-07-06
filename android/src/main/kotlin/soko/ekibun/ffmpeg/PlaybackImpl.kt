@@ -7,7 +7,6 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
-import android.util.Log
 import android.view.Surface
 import io.flutter.view.TextureRegistry
 import java.nio.ByteBuffer
@@ -86,7 +85,7 @@ class PlaybackImpl(
   val videoFormat = 25 // AV_PIX_FMT_RGBA
 
   fun flushAudioBuffer(buffer: Long, length: Int): Int {
-    if (length <= 0) return 1
+    if (length <= 0) return 0
     return audio.write(getByteBuffer(buffer, length), 0, length)
   }
 
@@ -99,6 +98,7 @@ class PlaybackImpl(
   val paint by lazy { Paint() }
 
   fun flushVideoBuffer(buffer: Long, length: Int, width: Int, height: Int): Int {
+    if (buffer == 0L) return -1;
     surfaceTexture.setDefaultBufferSize(width, height)
     if (bitmap == null || bitmap?.width != width || bitmap?.height != height) {
       val oldBitmap = bitmap
@@ -118,7 +118,6 @@ class PlaybackImpl(
   }
 
   fun resume(): Int {
-    Log.v("ffmpeg", "resume")
     audio.play()
     return 0
   }

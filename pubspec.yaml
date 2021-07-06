@@ -1,5 +1,5 @@
-name: ffmpeg
-description: A new flutter plugin project.
+name: flutter_ffplay
+description: A video player powered by ffmpeg.
 version: 0.0.1
 homepage:
 

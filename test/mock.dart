@@ -1,6 +1,6 @@
 import 'dart:ffi';
 
-import 'package:ffmpeg/ffmpeg.dart';
+import 'package:flutter_ffplay/ffmpeg.dart';
 
 final _ffilib = DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll');
 

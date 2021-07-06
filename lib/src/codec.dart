@@ -22,8 +22,9 @@ class CodecContext {
     );
     _isolate = port.first.then((result) {
       port.close();
-      if (result is Map && result.containsKey(#error))
+      if (result is Map && result.containsKey(#error)) {
         throw _decodeData(result[#error], _isolateDecoders);
+      }
       return _decodeData(result, _isolateDecoders) as _IsolateFunction;
     });
   }

@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:ffmpeg/ffmpeg.dart';
+import 'package:flutter_ffplay/ffmpeg.dart';
 
 import 'protocol.dart';
 
@@ -18,10 +18,12 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController _controller = TextEditingController(
-    text: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+    text:
+        'http://ivi.bupt.edu.cn/hls/cctv1hd.m3u8',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
+  final ioHandler = HttpIOHandler();
 
   bool _isPlaying = false;
   int _duration = 0;
@@ -61,13 +63,14 @@ class _MyAppState extends State<MyApp> {
                     if (_ctx != null) {
                       final ctx = _ctx;
                       _ctx = null;
+                      _playback?.reset();
                       await ctx?.close();
                     }
                     final url = _controller.text;
-                    final request = HttpProtocolRequest(Uri.parse(url));
                     final playback = _playback ??= await Playback.create();
                     final ctx = _ctx = FFMpegContext(
-                      request,
+                      url,
+                      ioHandler,
                       playback,
                       onFrame: (pts) {
                         setState(() {
@@ -88,13 +91,14 @@ class _MyAppState extends State<MyApp> {
                 ),
               ],
             ),
-            (_playback?.textureId ?? -1) != -1
-                ? Center(
-                    child: AspectRatio(
-                    aspectRatio: _playback!.aspectRatio,
-                    child: Texture(textureId: _playback!.textureId),
-                  ))
-                : const SizedBox(),
+            Expanded(
+                child: (_playback?.textureId ?? -1) != -1
+                    ? Center(
+                        child: AspectRatio(
+                        aspectRatio: _playback!.aspectRatio,
+                        child: Texture(textureId: _playback!.textureId),
+                      ))
+                    : const SizedBox()),
             Row(
               children: [
                 IconButton(
@@ -119,7 +123,9 @@ class _MyAppState extends State<MyApp> {
                         seeking = false;
                       }),
                 ),
-                Text("${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
+                Text(_duration < 0
+                    ? parseHHMMSS(_position)
+                    : "${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
                 const SizedBox(width: 8),
               ],
             ),

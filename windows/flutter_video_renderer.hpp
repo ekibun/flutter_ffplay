@@ -25,20 +25,16 @@ public:
 
   void flushVideoBuffer(uint8_t *buffer, int width, int height)
   {
-    if (width && height)
+    if (!pixel_buffer.get())
     {
-      if (!pixel_buffer.get())
-      {
-        pixel_buffer.reset(new FlutterDesktopPixelBuffer());
-      }
-      size_t buffer_size = (width * height) * (32 >> 3);
-      if (pixel_buffer->width != width ||
-          pixel_buffer->height != height)
-      {
-        pixel_buffer->width = width;
-        pixel_buffer->height = height;
-        pixel_buffer->buffer = buffer;
-      }
+      pixel_buffer.reset(new FlutterDesktopPixelBuffer());
+    }
+    if (pixel_buffer->width != width ||
+        pixel_buffer->height != height)
+    {
+      pixel_buffer->width = width;
+      pixel_buffer->height = height;
+      pixel_buffer->buffer = buffer;
     }
     registrar_->MarkTextureFrameAvailable(texture_id_);
   }

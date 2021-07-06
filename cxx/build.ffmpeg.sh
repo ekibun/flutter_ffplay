@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-ANDROID_NDK_HOME=/home/ekibun/android-ndk-r21e
-
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 abi="$1_$2"
@@ -37,24 +35,44 @@ exitUnsupport() {
 
 case $1 in
   "win32")
-    case $2 in
-      "x86")
-        CROSS_PREFIX=i686-w64-mingw32
-        ;;
-      "x86_64")
-        CROSS_PREFIX=x86_64-w64-mingw32
-        ;;
-      *)
-        exitUnsupport
-    esac
-    CONFIG_ARGS+=(
-      --arch=$2
-      --target-os=mingw32
-      --cross-prefix=$CROSS_PREFIX-
-    )
+    if [ $OSTYPE == msys ]; then
+      CONFIG_ARGS+=(
+        --toolchain=msvc
+        --disable-optimizations
+        --arch=$2
+        --target-os=win32
+      )
+    else
+      case $2 in
+        "x86")
+          CROSS_PREFIX=i686-w64-mingw32
+          ;;
+        "x86_64")
+          CROSS_PREFIX=x86_64-w64-mingw32
+          ;;
+        *)
+          exitUnsupport
+      esac
+      CONFIG_ARGS+=(
+        --arch=$2
+        --target-os=mingw32
+        --cross-prefix=$CROSS_PREFIX-
+      )
+    fi
     ;;
   "android")
-    TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+    case "$OSTYPE" in
+      darwin*)
+        HOST_OS="darwin"
+        ;;
+      msys*)
+        HOST_OS="windows"
+        ;;
+      *)
+        HOST_OS="linux"
+        ;;
+    esac
+    TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST_OS-x86_64"
     case $2 in
       "arm")
         MIN_API=16
@@ -109,14 +127,14 @@ cd $makedir
 $DIR/ffmpeg/configure "${CONFIG_ARGS[@]}"
 
 if [ $1 == "android" ]; then
-  sed -i "s/#define HAVE_INET_ATON 0/#define HAVE_INET_ATON 1/" config.h
-  sed -i "s/#define getenv(x) NULL/\\/\\/ #define getenv(x) NULL/" config.h
+  sed -i.bak "s/#define HAVE_INET_ATON 0/#define HAVE_INET_ATON 1/" config.h
+  sed -i.bak "s/#define getenv(x) NULL/\\/\\/ #define getenv(x) NULL/" config.h
 fi
 
 make -j8
 make install
 
-if [ $1 == "win32" ]; then
+if [ $1 == "win32" ] && [ $OSTYPE != msys ]; then
   cp /usr/$CROSS_PREFIX/lib/libmingw32.a $builddir/lib/.
   cp /usr/$CROSS_PREFIX/lib/libmingwex.a $builddir/lib/.
   cp /usr/lib/gcc/$CROSS_PREFIX/$( ls /usr/lib/gcc/$CROSS_PREFIX/ | grep win32 )/libgcc.a $builddir/lib/libgcc.a

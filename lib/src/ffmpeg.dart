@@ -23,10 +23,10 @@ class FFMpegContext extends FormatContext {
   final Playback? _playback;
   final void Function(int?)? _onFrame;
 
-  FFMpegContext(ProtocolRequest req, this._playback,
+  FFMpegContext(String url, IOHandler ioHandler, this._playback,
       {void Function(int?)? onFrame})
       : _onFrame = onFrame,
-        super(req);
+        super(url, ioHandler);
   _PTS? _pts;
   Future? _playingFuture;
 
@@ -144,11 +144,13 @@ class FFMpegContext extends FormatContext {
             if (!muteOnNextFrame()) _playback?._postFrame(codecType, frame);
             await _lastUpdate;
             if (!_isPlaying()) return;
-            // wait video
-            while ((muteOnNextFrame() || codecType == ffi.AVMediaType.VIDEO) &&
-                frame.timestamp > pts.ptsNow()) {
-              await Future.delayed(const Duration(milliseconds: 1));
-              if (!_isPlaying()) return;
+            if (onNextFrame?.isCompleted != false) {
+              // wait video
+              while (codecType == ffi.AVMediaType.VIDEO &&
+                  frame.timestamp > pts.ptsNow()) {
+                await Future.delayed(const Duration(milliseconds: 1));
+                if (!_isPlaying()) return;
+              }
             }
             if (muteOnNextFrame()) return;
             int timestamp =

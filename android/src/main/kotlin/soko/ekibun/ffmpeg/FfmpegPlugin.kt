@@ -21,7 +21,7 @@ class FfmpegPlugin : FlutterPlugin, MethodCallHandler {
   private lateinit var textures: TextureRegistry
 
   override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "ffmpeg")
+    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_ffplay")
     textures = flutterPluginBinding.textureRegistry
     channel.setMethodCallHandler(this)
   }

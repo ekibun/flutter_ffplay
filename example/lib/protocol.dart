@@ -3,45 +3,129 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:ffmpeg/ffmpeg.dart';
+import 'package:flutter_ffplay/ffmpeg.dart';
 
-class FileRequest extends ProtocolRequest {
-  RandomAccessFile? file;
+// class FileRequest extends ProtocolRequest {
+//   RandomAccessFile? file;
 
-  FileRequest._new(this.file, [int bufferSize = 32768]) : super(bufferSize);
+//   FileRequest._new(this.file, [int bufferSize = 32768]) : super(bufferSize);
 
-  static Future<FileRequest> open(String url) async {
-    return FileRequest._new(await File(url).open());
-  }
+//   static Future<FileRequest> open(String url) async {
+//     return FileRequest._new(await File(url).open());
+//   }
 
-  @override
-  Future closeImpl() async {
-    await file?.close();
-    file = null;
-  }
+//   @override
+//   Future closeImpl() async {
+//     await file?.close();
+//     file = null;
+//   }
 
-  @override
-  Future<int> read(Uint8List buf) async {
-    final ret = await file?.readInto(buf) ?? 0;
-    if (ret == 0) return -1;
-    return ret;
-  }
+//   @override
+//   Future<int> read(Uint8List buf) async {
+//     final ret = await file?.readInto(buf) ?? 0;
+//     if (ret == 0) return -1;
+//     return ret;
+//   }
 
-  @override
-  Future<int> seek(int offset, int whence) async {
-    switch (whence) {
-      case AVSEEK_SIZE:
-        return await file?.length() ?? -1;
-      default:
-        await file?.setPosition(offset);
-        return 0;
+//   @override
+//   Future<int> seek(int offset, int whence) async {
+//     switch (whence) {
+//       case AVSEEK_SIZE:
+//         return await file?.length() ?? -1;
+//       default:
+//         await file?.setPosition(offset);
+//         return 0;
+//     }
+//   }
+// }
+
+class _BytesBuffer {
+  /// Initial size of internal buffer.
+  static const int _initSize = 1024;
+
+  /// Reusable empty [Uint8List].
+  ///
+  /// Safe for reuse because a fixed-length empty list is immutable.
+  static final _emptyList = Uint8List(0);
+
+  /// Current count of bytes written to buffer.
+  int _length = 0;
+
+  /// Internal buffer accumulating bytes.
+  ///
+  /// Will grow as necessary
+  Uint8List _buffer;
+
+  _BytesBuffer() : _buffer = _emptyList;
+
+  void add(List<int> bytes) {
+    int byteCount = bytes.length;
+    if (byteCount == 0) return;
+    int required = _length + byteCount;
+    if (_buffer.length < required) {
+      _grow(required);
     }
+    assert(_buffer.length >= required);
+    if (bytes is Uint8List) {
+      _buffer.setRange(_length, required, bytes);
+    } else {
+      for (int i = 0; i < byteCount; i++) {
+        _buffer[_length + i] = bytes[i];
+      }
+    }
+    _length = required;
+  }
+
+  int takeBytes(Uint8List target) {
+    final byteTaken = min(target.length, _length);
+    target.setRange(0, byteTaken, _buffer);
+    takeOut(byteTaken);
+    return byteTaken;
+  }
+
+  void takeOut(int byteTaken) {
+    _length -= byteTaken;
+    _buffer.setRange(
+      0,
+      _length,
+      Uint8List.view(
+        _buffer.buffer,
+        _buffer.offsetInBytes + byteTaken,
+        _length,
+      ),
+    );
+  }
+
+  void _grow(int required) {
+    // We will create a list in the range of 2-4 times larger than
+    // required.
+    int newSize = required * 2;
+    if (newSize < _initSize) {
+      newSize = _initSize;
+    } else {
+      newSize = _pow2roundup(newSize);
+    }
+    var newBuffer = Uint8List(newSize);
+    newBuffer.setRange(0, _buffer.length, _buffer);
+    _buffer = newBuffer;
+  }
+
+  /// Rounds numbers <= 2^32 up to the nearest power of 2.
+  static int _pow2roundup(int x) {
+    assert(x > 0);
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x + 1;
   }
 }
 
 class _HttpResponse {
   int pos;
-  final buffer = <int>[];
+  final buffer = _BytesBuffer();
   final HttpClientResponse rsp;
   final StreamController _onData = StreamController.broadcast();
   late StreamSubscription _sub;
@@ -49,11 +133,9 @@ class _HttpResponse {
 
   _HttpResponse(this.pos, this.rsp, int maxBufferSize) {
     _sub = rsp.listen((data) {
-      // ignore: avoid_print
-      // print("${buffer.length}+${data.length}");
-      buffer.addAll(data);
-      _onData.add(buffer);
-      if (buffer.length > maxBufferSize) _sub.pause();
+      buffer.add(data);
+      _onData.add(null);
+      if (buffer._length > maxBufferSize) _sub.pause();
     }, onDone: () => _onData.close());
   }
 
@@ -63,10 +145,20 @@ class _HttpResponse {
   }
 }
 
-class HttpProtocolRequest extends ProtocolRequest {
+class HttpIOHandler extends IOHandler {
+  final _client = HttpClient();
+
+  HttpIOHandler([int bufferSize = 32768]) : super(bufferSize);
+  @override
+  Future<IOContext> open(String url) async {
+    return HttpIOContext(Uri.parse(url), _client);
+  }
+}
+
+class HttpIOContext extends IOContext {
   int _offset = 0;
   int _length = 0;
-  final _client = HttpClient();
+  final HttpClient _client;
   _HttpResponse? __rsp;
 
   Future<_HttpResponse> getRange(int start) async {
@@ -79,17 +171,14 @@ class HttpProtocolRequest extends ProtocolRequest {
   Future<_HttpResponse> get _rsp async => __rsp ??= await getRange(_offset);
   Uri url;
 
-  HttpProtocolRequest(this.url, [int bufferSize = 8000]) : super(bufferSize);
-
-  @override
-  Future<void> closeImpl() async {}
+  HttpIOContext(this.url, this._client);
 
   @override
   Future<int> read(Uint8List buf) async {
     final rsp = await _rsp;
     if (rsp._sub.isPaused) rsp._sub.resume();
     while (true) {
-      final range = min(rsp.buffer.length, buf.length);
+      final range = rsp.buffer.takeBytes(buf);
       if (range == 0 && rsp.isClosed) return -1;
       if (range == 0) {
         try {
@@ -100,8 +189,6 @@ class HttpProtocolRequest extends ProtocolRequest {
         continue;
       }
       _offset += range;
-      buf.setRange(0, range, rsp.buffer);
-      rsp.buffer.removeRange(0, range);
       return range;
     }
   }
@@ -123,8 +210,8 @@ class HttpProtocolRequest extends ProtocolRequest {
         final rsp = __rsp;
         if (rsp != null &&
             _offset <= offset &&
-            _offset + rsp.buffer.length > offset) {
-          rsp.buffer.removeRange(0, offset - _offset);
+            _offset + rsp.buffer._length > offset) {
+          rsp.buffer.takeOut(offset - _offset);
         } else {
           __rsp?.close();
           __rsp = null;
@@ -132,5 +219,11 @@ class HttpProtocolRequest extends ProtocolRequest {
         _offset = offset;
         return 0;
     }
+  }
+
+  @override
+  Future<int> close() async {
+    await __rsp?.close();
+    return 0;
   }
 }

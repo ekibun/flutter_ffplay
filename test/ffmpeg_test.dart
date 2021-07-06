@@ -10,7 +10,7 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/executable.dart';
 import 'package:flutter_tools/src/windows/visual_studio.dart';
 import 'package:file/local.dart';
-import 'package:ffmpeg/ffmpeg.dart';
+import 'package:flutter_ffplay/ffmpeg.dart';
 import 'package:process/process.dart';
 
 // ignore: avoid_relative_lib_imports
@@ -72,9 +72,9 @@ void main() {
   });
 
   test('get stream info', () async {
-    const url = 'D:/CloudMusic/seven oops - オレンジ.flac';
-    final protocol = await FileRequest.open(url);
-    final ctx = FFMpegContext(protocol, MockPlayback());
+    const url = 'http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8';
+    final ioHandler = HttpIOHandler();
+    final ctx = FFMpegContext(url, ioHandler, MockPlayback());
     final streams = await ctx.getStreams();
     // ignore: avoid_print
     print(streams);

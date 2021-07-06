@@ -2,9 +2,10 @@ part of '../ffmpeg.dart';
 
 class FormatContext {
   Future<_IsolateFunction>? _isolate;
-  final ProtocolRequest _req;
+  final String url;
+  final IOHandler _ioHandler;
 
-  FormatContext(this._req);
+  FormatContext(this.url, this._ioHandler);
 
   _ensureIsolate() {
     if (_isolate != null) return;
@@ -15,22 +16,24 @@ class FormatContext {
         #port: port.sendPort,
         #init: _initReaderIsolate,
         #handle: _handleReaderIsolate,
-        #request: _req._encode(),
+        #ioHandler: _ioHandler._encode(),
+        #url: url,
       },
       debugName: 'FormatContext',
       errorsAreFatal: true,
     );
     _isolate = port.first.then((result) {
       port.close();
-      if (result is Map && result.containsKey(#error))
+      if (result is Map && result.containsKey(#error)) {
         throw _decodeData(result[#error], _isolateDecoders);
+      }
       return _decodeData(result, _isolateDecoders) as _IsolateFunction;
     });
   }
 
   static ffi.FormatContext _initReaderIsolate(Map spawnMessage) {
-    final request = _decodeData(spawnMessage[#request], _isolateDecoders);
-    final ctx = ffi.FormatContext(request);
+    final io = IOHandler._decode(spawnMessage[#ioHandler])!;
+    final ctx = ffi.FormatContext(spawnMessage[#url], io);
     return ctx;
   }
 
@@ -118,8 +121,7 @@ class FormatContext {
         #port: closePort.sendPort,
       });
       isolate.destroy();
-      _req.close();
-    });
+    }).catchError((_) {});
     _isolate = null;
     return ret;
   }

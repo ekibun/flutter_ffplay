@@ -229,23 +229,29 @@ extern "C"
     return nullptr;
   }
 
-  DLLEXPORT AVFormatContext *AVFormatContext_create(
+  DLLEXPORT AVIOContext *AVIOContext_create(
       void *opaque, int64_t bufferSize,
       int (*read_packet)(void *opaque, uint8_t *buf, int buf_size),
       int64_t (*seek)(void *opaque, int64_t offset, int whence))
   {
-    AVFormatContext *ctx;
-    uint8_t *buffer = (uint8_t *)av_malloc(bufferSize);
-    AVIOContext *ioCtx = avio_alloc_context(
-        buffer, bufferSize, 0, opaque, read_packet, nullptr, seek);
-    ctx = avformat_alloc_context();
-    ctx->pb = ioCtx;
-    int ret = avformat_open_input(&ctx, nullptr, nullptr, nullptr);
-    if (ret == 0)
-      return ctx;
-    if (ctx)
-      avformat_close_input(&ctx);
-    return nullptr;
+    return avio_alloc_context(
+        (uint8_t *)av_malloc(bufferSize), bufferSize, 0, opaque, read_packet, nullptr, seek);
+  }
+
+  DLLEXPORT AVFormatContext *AVFormatContext_create(
+      int (*io_open)(AVFormatContext *s, AVIOContext **pb, const char *url, int flags, AVDictionary **options),
+      void (*io_close)(AVFormatContext *s, AVIOContext *pb))
+  {
+    AVFormatContext *ctx = avformat_alloc_context();
+    ctx->io_open = io_open;
+    ctx->io_close = io_close;
+    ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
+    return ctx;
+  }
+
+  DLLEXPORT int64_t AVFormatContext_open(AVFormatContext *ctx, char *url)
+  {
+    return avformat_open_input(&ctx, url, nullptr, nullptr);
   }
 
   DLLEXPORT void AVFormatContext_close(AVFormatContext *ctx)

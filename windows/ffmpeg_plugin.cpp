@@ -39,7 +39,7 @@ namespace
   {
     auto channel =
         std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-            registrar->messenger(), "ffmpeg",
+            registrar->messenger(), "flutter_ffplay",
             &flutter::StandardMethodCodec::GetInstance());
 
     auto *channel_pointer = channel.get();
