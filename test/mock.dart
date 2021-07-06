@@ -1,8 +1,8 @@
 import 'dart:ffi';
 
-import 'package:flutter_ffplay/ffmpeg.dart';
+import 'package:flutter_ffplay/flutter_ffplay.dart';
 
-final _ffilib = DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll');
+final _ffilib = DynamicLibrary.open('./test/build/Debug/flutter_ffplay_plugin.dll');
 
 class _PlaybackCtx extends Struct {
   @Int64()

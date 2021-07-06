@@ -1,4 +1,4 @@
-part of '../ffmpeg.dart';
+part of '../flutter_ffplay.dart';
 
 class _WrapIOContext extends ffi.IOContext {
   final _IsolateFunction _cb;

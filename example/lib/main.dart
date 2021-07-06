@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_ffplay/ffmpeg.dart';
+import 'package:flutter_ffplay/flutter_ffplay.dart';
 
 import 'iohandler.dart';
 

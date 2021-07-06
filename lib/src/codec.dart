@@ -1,4 +1,4 @@
-part of '../ffmpeg.dart';
+part of '../flutter_ffplay.dart';
 
 class CodecContext {
   final FFMpegStream _stream;

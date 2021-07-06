@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
-set(PLUGIN_NAME "ffmpeg_plugin")
+set(PLUGIN_NAME "flutter_ffplay_plugin")
 
 project(${PLUGIN_NAME} LANGUAGES CXX)
 

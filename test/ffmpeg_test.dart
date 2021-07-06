@@ -10,7 +10,7 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/executable.dart';
 import 'package:flutter_tools/src/windows/visual_studio.dart';
 import 'package:file/local.dart';
-import 'package:flutter_ffplay/ffmpeg.dart';
+import 'package:flutter_ffplay/flutter_ffplay.dart';
 import 'package:process/process.dart';
 
 // ignore: avoid_relative_lib_imports
@@ -72,7 +72,7 @@ void main() {
   });
 
   test('get stream info', () async {
-    const url = 'http://playertest.longtailvideo.com/adaptive/bipbop/gear4/prog_index.m3u8';
+    const url = 'http://www.w3school.com.cn/i/movie.mp4';
     final ioHandler = HttpIOHandler();
     final ctx = FFMpegContext(url, ioHandler, MockPlayback());
     final streams = await ctx.getStreams();

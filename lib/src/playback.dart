@@ -1,4 +1,4 @@
-part of '../ffmpeg.dart';
+part of '../flutter_ffplay.dart';
 
 abstract class Playback {
   Pointer<ffi.SWContext>? _sw;

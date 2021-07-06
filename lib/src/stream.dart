@@ -1,4 +1,4 @@
-part of '../ffmpeg.dart';
+part of '../flutter_ffplay.dart';
 
 class FFMpegStream implements _IsolateEncodable {
   final int index;

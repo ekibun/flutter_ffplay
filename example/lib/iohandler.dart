@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:flutter_ffplay/ffmpeg.dart';
+import 'package:flutter_ffplay/flutter_ffplay.dart';
 
 class _BytesBuffer {
   static const int _initSize = 1024;
