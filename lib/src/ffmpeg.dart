@@ -21,12 +21,9 @@ class _PTS {
 
 class FFMpegContext extends FormatContext {
   final Playback? _playback;
-  final void Function(int?)? _onFrame;
 
-  FFMpegContext(String url, IOHandler ioHandler, this._playback,
-      {void Function(int?)? onFrame})
-      : _onFrame = onFrame,
-        super(url, ioHandler);
+  FFMpegContext(String url, IOHandler ioHandler, this._playback)
+      : super(url, ioHandler);
   _PTS? _pts;
   Future? _playingFuture;
 
@@ -162,7 +159,7 @@ class FFMpegContext extends FormatContext {
               pts.update(frame.timestamp);
               onNextFrame?.complete(true);
             }
-            _onFrame?.call(pts.ptsNow());
+            _playback?._onFrame?.call(pts.ptsNow());
           })()
             ..whenComplete(() {
               _frames[codecType]?.remove(frame);
@@ -172,9 +169,12 @@ class FFMpegContext extends FormatContext {
         }
       });
       var lastDecoTimeStamp = -1;
+      var sendingPacket = 0;
       while (true) {
         if (!_isPlaying()) break;
-        if (lastDecoTimeStamp - pts.ptsNow() > 1 * ffi.AV_TIME_BASE) {
+        if (lastDecoTimeStamp - pts.ptsNow() > 1 * ffi.AV_TIME_BASE ||
+            sendingPacket > 10 ||
+            _frames.values.fold<int>(0, (sum, a) => sum + a.length) > 100) {
           await Future.delayed(const Duration(milliseconds: 1));
         }
         final packet = await super.getPacket(streams);
@@ -189,6 +189,7 @@ class FFMpegContext extends FormatContext {
           packet.close();
           break;
         }
+        sendingPacket++;
         final streamIndex = packet.streamIndex;
         final stream =
             pts.streams.values.firstWhere((s) => s.index == streamIndex);
@@ -197,6 +198,7 @@ class FFMpegContext extends FormatContext {
             .sendPacketAndGetFrame(packet)
             .then((frame) {
           packet.close();
+          sendingPacket--;
           if (frame == null) return;
           if (_pts != pts) {
             frame._close();
@@ -209,7 +211,7 @@ class FFMpegContext extends FormatContext {
         });
       }
     } finally {
-      _onFrame?.call(null);
+      _playback?._onFrame?.call(null);
       if (onNextFrame?.isCompleted == false) onNextFrame?.complete(false);
       pts.playing = false;
     }

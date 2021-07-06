@@ -31,9 +31,9 @@ flutter:
   plugin:
     platforms:
       windows:
-        pluginClass: FfmpegPlugin
+        pluginClass: FlutterFfplayPlugin
       android:
-        pluginClass: FfmpegPlugin
+        pluginClass: FlutterFfplayPlugin
         package: soko.ekibun.ffmpeg
 
   # To add assets to your plugin package, add an assets section, like this:

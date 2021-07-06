@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_ffplay/ffmpeg.dart';
 
-import 'protocol.dart';
+import 'iohandler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,8 +18,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController _controller = TextEditingController(
-    text:
-        'http://ivi.bupt.edu.cn/hls/cctv1hd.m3u8',
+    text: 'http://ivi.bupt.edu.cn/hls/cctv1hd.m3u8',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
@@ -28,7 +27,7 @@ class _MyAppState extends State<MyApp> {
   bool _isPlaying = false;
   int _duration = 0;
   int _position = 0;
-  bool seeking = false;
+  bool _isSeeking = false;
 
   String parseHHMMSS(int pts) {
     final sec = pts ~/ AV_TIME_BASE;
@@ -63,25 +62,24 @@ class _MyAppState extends State<MyApp> {
                     if (_ctx != null) {
                       final ctx = _ctx;
                       _ctx = null;
-                      _playback?.reset();
                       await ctx?.close();
                     }
                     final url = _controller.text;
-                    final playback = _playback ??= await Playback.create();
+                    final playback =
+                        _playback ??= await Playback.create(onFrame: (pts) {
+                      setState(() {
+                        if (pts == null) {
+                          _isPlaying = false;
+                        } else {
+                          _isPlaying = true;
+                          _position = _isSeeking ? _position : pts;
+                        }
+                      });
+                    });
                     final ctx = _ctx = FFMpegContext(
                       url,
                       ioHandler,
                       playback,
-                      onFrame: (pts) {
-                        setState(() {
-                          if (pts == null) {
-                            _isPlaying = false;
-                          } else {
-                            _isPlaying = true;
-                            _position = seeking ? _position : pts;
-                          }
-                        });
-                      },
                     );
                     final streams = await ctx.getStreams();
                     _duration = await ctx.getDuration();
@@ -113,14 +111,14 @@ class _MyAppState extends State<MyApp> {
                           0, min(_position.toDouble(), _duration.toDouble())),
                       max: max(0, _duration.toDouble()),
                       onChanged: (pos) {
-                        seeking = true;
+                        _isSeeking = true;
                         setState(() {
                           _position = pos.toInt();
                         });
                       },
                       onChangeEnd: (pos) async {
                         await _ctx?.seekTo(pos.toInt());
-                        seeking = false;
+                        _isSeeking = false;
                       }),
                 ),
                 Text(_duration < 0

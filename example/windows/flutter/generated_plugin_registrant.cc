@@ -6,9 +6,9 @@
 
 #include "generated_plugin_registrant.h"
 
-#include <flutter_ffplay/ffmpeg_plugin.h>
+#include <flutter_ffplay/flutter_ffplay_plugin.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
-  FfmpegPluginRegisterWithRegistrar(
-      registry->GetRegistrarForPlugin("FfmpegPlugin"));
+  FlutterFfplayPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterFfplayPlugin"));
 }

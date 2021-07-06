@@ -1,4 +1,4 @@
-package soko.ekibun.ffmpeg_example
+package soko.ekibun.example
 
 import io.flutter.embedding.android.FlutterActivity
 

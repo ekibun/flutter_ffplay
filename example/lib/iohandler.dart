@@ -5,55 +5,10 @@ import 'dart:typed_data';
 
 import 'package:flutter_ffplay/ffmpeg.dart';
 
-// class FileRequest extends ProtocolRequest {
-//   RandomAccessFile? file;
-
-//   FileRequest._new(this.file, [int bufferSize = 32768]) : super(bufferSize);
-
-//   static Future<FileRequest> open(String url) async {
-//     return FileRequest._new(await File(url).open());
-//   }
-
-//   @override
-//   Future closeImpl() async {
-//     await file?.close();
-//     file = null;
-//   }
-
-//   @override
-//   Future<int> read(Uint8List buf) async {
-//     final ret = await file?.readInto(buf) ?? 0;
-//     if (ret == 0) return -1;
-//     return ret;
-//   }
-
-//   @override
-//   Future<int> seek(int offset, int whence) async {
-//     switch (whence) {
-//       case AVSEEK_SIZE:
-//         return await file?.length() ?? -1;
-//       default:
-//         await file?.setPosition(offset);
-//         return 0;
-//     }
-//   }
-// }
-
 class _BytesBuffer {
-  /// Initial size of internal buffer.
   static const int _initSize = 1024;
-
-  /// Reusable empty [Uint8List].
-  ///
-  /// Safe for reuse because a fixed-length empty list is immutable.
   static final _emptyList = Uint8List(0);
-
-  /// Current count of bytes written to buffer.
   int _length = 0;
-
-  /// Internal buffer accumulating bytes.
-  ///
-  /// Will grow as necessary
   Uint8List _buffer;
 
   _BytesBuffer() : _buffer = _emptyList;
@@ -97,8 +52,6 @@ class _BytesBuffer {
   }
 
   void _grow(int required) {
-    // We will create a list in the range of 2-4 times larger than
-    // required.
     int newSize = required * 2;
     if (newSize < _initSize) {
       newSize = _initSize;
@@ -110,7 +63,6 @@ class _BytesBuffer {
     _buffer = newBuffer;
   }
 
-  /// Rounds numbers <= 2^32 up to the nearest power of 2.
   static int _pow2roundup(int x) {
     assert(x > 0);
     --x;

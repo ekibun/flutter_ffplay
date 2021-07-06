@@ -98,7 +98,6 @@ class PlaybackImpl(
   val paint by lazy { Paint() }
 
   fun flushVideoBuffer(buffer: Long, length: Int, width: Int, height: Int): Int {
-    if (buffer == 0L) return -1;
     surfaceTexture.setDefaultBufferSize(width, height)
     if (bitmap == null || bitmap?.width != width || bitmap?.height != height) {
       val oldBitmap = bitmap

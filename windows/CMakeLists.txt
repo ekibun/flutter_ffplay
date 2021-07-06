@@ -4,11 +4,11 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin, so it must
 # not be changed
-set(PLUGIN_NAME "ffmpeg_plugin")
+set(PLUGIN_NAME "flutter_ffplay_plugin")
 
 add_library(${PLUGIN_NAME} SHARED
   "${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffi.cpp"
-  "ffmpeg_plugin.cpp"
+  "flutter_ffplay_plugin.cpp"
 )
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cxx/ffmpeg.cmake")

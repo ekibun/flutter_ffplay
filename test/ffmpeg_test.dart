@@ -14,7 +14,7 @@ import 'package:flutter_ffplay/ffmpeg.dart';
 import 'package:process/process.dart';
 
 // ignore: avoid_relative_lib_imports
-import '../example/lib/protocol.dart';
+import '../example/lib/iohandler.dart';
 import 'mock.dart';
 
 void main() {
@@ -83,5 +83,6 @@ void main() {
     await Future.delayed(const Duration(seconds: 5));
     await ctx.seekTo(30 * AV_TIME_BASE);
     await Future.delayed(const Duration(seconds: 30));
+    await ctx.close();
   }, timeout: Timeout.none);
 }

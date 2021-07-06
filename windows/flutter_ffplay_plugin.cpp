@@ -1,19 +1,19 @@
-#include "include/ffmpeg/ffmpeg_plugin.h"
+#include "include/flutter_ffplay/flutter_ffplay_plugin.h"
 #include "flutter_video_renderer.hpp"
 
 namespace
 {
 
-  class FfmpegPlugin : public flutter::Plugin
+  class FlutterFfplayPlugin : public flutter::Plugin
   {
   public:
     static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-    FfmpegPlugin(
+    FlutterFfplayPlugin(
         flutter::PluginRegistrarWindows *registrar,
         std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel);
 
-    virtual ~FfmpegPlugin();
+    virtual ~FlutterFfplayPlugin();
 
   private:
     // Called when a method is called on this plugin's channel from Dart.
@@ -34,7 +34,7 @@ namespace
   }
 
   // static
-  void FfmpegPlugin::RegisterWithRegistrar(
+  void FlutterFfplayPlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarWindows *registrar)
   {
     auto channel =
@@ -44,7 +44,7 @@ namespace
 
     auto *channel_pointer = channel.get();
 
-    auto plugin = std::make_unique<FfmpegPlugin>(registrar, std::move(channel));
+    auto plugin = std::make_unique<FlutterFfplayPlugin>(registrar, std::move(channel));
 
     channel_pointer->SetMethodCallHandler(
         [plugin_pointer = plugin.get()](const auto &call, auto result)
@@ -55,16 +55,16 @@ namespace
     registrar->AddPlugin(std::move(plugin));
   }
 
-  FfmpegPlugin::FfmpegPlugin(
+  FlutterFfplayPlugin::FlutterFfplayPlugin(
       flutter::PluginRegistrarWindows *registrar,
       std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel)
       : channel_(std::move(channel)),
         messenger_(registrar->messenger()),
         textures_(registrar->texture_registrar()) {}
 
-  FfmpegPlugin::~FfmpegPlugin() {}
+  FlutterFfplayPlugin::~FlutterFfplayPlugin() {}
 
-  void FfmpegPlugin::HandleMethodCall(
+  void FlutterFfplayPlugin::HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result)
   {
@@ -129,10 +129,10 @@ namespace
 
 } // namespace
 
-void FfmpegPluginRegisterWithRegistrar(
+void FlutterFfplayPluginRegisterWithRegistrar(
     FlutterDesktopPluginRegistrarRef registrar)
 {
-  FfmpegPlugin::RegisterWithRegistrar(
+  FlutterFfplayPlugin::RegisterWithRegistrar(
       flutter::PluginRegistrarManager::GetInstance()
           ->GetRegistrar<flutter::PluginRegistrarWindows>(registrar));
 }

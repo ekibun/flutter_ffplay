@@ -4,6 +4,7 @@ abstract class Playback {
   Pointer<ffi.SWContext>? _sw;
   final int textureId;
   final int audioBufferTime;
+  final void Function(int?)? _onFrame;
 
   int get width => _sw?.ref.width ?? 0;
   int get height => _sw?.ref.height ?? 0;
@@ -19,8 +20,9 @@ abstract class Playback {
     int sampleRate,
     int channels,
     int audioFormat,
-    int videoFormat,
-  ) {
+    int videoFormat, {
+    void Function(int?)? onFrame,
+  }) : _onFrame = onFrame {
     final sw = _sw = ffi.mallocSWContext();
     sw.ref.sampleRate = sampleRate;
     sw.ref.channels = channels;
@@ -28,7 +30,9 @@ abstract class Playback {
     sw.ref.videoFormat = videoFormat;
   }
 
-  static Future<Playback> create() async {
+  static Future<Playback> create({
+    void Function(int?)? onFrame,
+  }) async {
     final data = await _channel.invokeMethod("create");
     return _PlaybackImpl._(
       data["ctx"],
@@ -38,6 +42,7 @@ abstract class Playback {
       data["channels"],
       data["audioFormat"],
       data["videoFormat"],
+      onFrame,
     );
   }
 
@@ -77,8 +82,6 @@ abstract class Playback {
     }
   }
 
-  Future reset() => flushVideoBuffer(Pointer.fromAddress(0), 0, 0, 0);
-
   Future<int> flushAudioBuffer(
     Pointer<Uint8> buffer,
     int length,
@@ -107,10 +110,18 @@ const _channel = MethodChannel('flutter_ffplay');
 
 class _PlaybackImpl extends Playback {
   int? _ctx;
-  _PlaybackImpl._(this._ctx, int textureId, int audioBufferSize, int sampleRate,
-      int channels, int audioFormat, int videoFormat)
+  _PlaybackImpl._(
+      this._ctx,
+      int textureId,
+      int audioBufferSize,
+      int sampleRate,
+      int channels,
+      int audioFormat,
+      int videoFormat,
+      void Function(int?)? onFrame)
       : super(textureId, audioBufferSize, sampleRate, channels, audioFormat,
-            videoFormat);
+            videoFormat,
+            onFrame: onFrame);
 
   @override
   Future<int> flushAudioBuffer(Pointer<Uint8> buffer, int length) async {

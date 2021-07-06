@@ -31,9 +31,9 @@ abstract class AVMediaType {
 
 final _ffilib = (() {
   if (Platform.environment['FLUTTER_TEST'] == 'true') {
-    return DynamicLibrary.open('./test/build/Debug/ffmpeg_plugin.dll');
+    return DynamicLibrary.open('./test/build/Debug/flutter_ffplay_plugin.dll');
   } else if (Platform.isWindows) {
-    return DynamicLibrary.open('ffmpeg_plugin.dll');
+    return DynamicLibrary.open('flutter_ffplay_plugin.dll');
   } else if (Platform.isAndroid) {
     return DynamicLibrary.open('libffmpeg.so');
   }

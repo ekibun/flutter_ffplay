@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="soko.ekibun.ffmpeg_example">
+    package="soko.ekibun.example">
    <application
-        android:label="ffmpeg_example"
+        android:label="example"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
