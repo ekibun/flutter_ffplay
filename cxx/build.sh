@@ -2,10 +2,10 @@
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 ARCS=(
-  "android arm"
-  "android arm64"
-  "android x86"
-  "android x86_64"
+  # "android arm"
+  # "android arm64"
+  # "android x86"
+  # "android x86_64"
   "win32 x86_64"
 )
 

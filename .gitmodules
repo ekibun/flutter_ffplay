@@ -1,3 +1,7 @@
 [submodule "cxx/ffmpeg"]
 	path = cxx/ffmpeg
 	url = https://github.com/ekibun/FFmpeg.git
+
+[submodule "cxx/nv-codec-headers"]
+	path = cxx/nv-codec-headers
+	url = https://git.videolan.org/git/ffmpeg/nv-codec-headers.git

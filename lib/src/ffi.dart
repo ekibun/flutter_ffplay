@@ -170,7 +170,7 @@ class CodecContext {
   void flush() => _ffiClassMethod(_this!, 'flush');
 }
 
-final _ioContext_create = _ffilib.lookupFunction<
+final _ioContextCreate = _ffilib.lookupFunction<
     Pointer<AVIOContext> Function(
         IntPtr,
         Int64,
@@ -193,7 +193,7 @@ int _ioOpen(Pointer<AVFormatContext> s, Pointer<Pointer<AVIOContext>> pb,
   final urlStr = url.toDartString();
   final format = _pointerToContext[s.address];
   final key = format!._io.open(urlStr);
-  final ctx = _ioContext_create(
+  final ctx = _ioContextCreate(
       key,
       format._io.bufferSize,
       Pointer.fromFunction(_ioReadPacket, _ffiFailReturn),
@@ -280,6 +280,12 @@ class FormatContext {
     _this = null;
     _pointerToContext.remove(__this);
     _close(__this!);
+    _keyToContext.removeWhere((key, value) {
+      if (value != this) return false;
+      _pointerToKey.removeWhere((k, v) => v == key);
+      _io.close(key);
+      return true;
+    });
   }
 
   int getDuration() => _ffiClassGet(_this!, 'duration');

@@ -21,13 +21,7 @@ class _BytesBuffer {
       _grow(required);
     }
     assert(_buffer.length >= required);
-    if (bytes is Uint8List) {
-      _buffer.setRange(_length, required, bytes);
-    } else {
-      for (int i = 0; i < byteCount; i++) {
-        _buffer[_length + i] = bytes[i];
-      }
-    }
+    _buffer.setRange(_length, required, bytes);
     _length = required;
   }
 
@@ -40,15 +34,10 @@ class _BytesBuffer {
 
   void takeOut(int byteTaken) {
     _length -= byteTaken;
-    _buffer.setRange(
-      0,
-      _length,
-      Uint8List.view(
-        _buffer.buffer,
-        _buffer.offsetInBytes + byteTaken,
-        _length,
-      ),
-    );
+    for(var i = 0; i < _length; ++i) {
+      _buffer[i] = _buffer[i + byteTaken];
+    }
+    if(_length <= 0) _buffer = _emptyList;
   }
 
   void _grow(int required) {

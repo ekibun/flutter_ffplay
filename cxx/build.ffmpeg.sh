@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 abi="$1_$2"
 
@@ -12,8 +12,6 @@ CONFIG_ARGS=(
   --enable-pic
   --enable-static
   --disable-shared
-  --enable-gpl
-  --enable-nonfree
   --disable-programs
   --disable-encoders
   --disable-muxers
@@ -34,83 +32,94 @@ exitUnsupport() {
 }
 
 case $1 in
-  "win32")
-    if [ $OSTYPE == msys ]; then
+"win32")
+  if [ $OSTYPE == msys ]; then
+    if [ $CUDA_PATH ]; then
+      CUDA_PATH="${CUDA_PATH//\\//}"
+      export PATH=$CUDA_PATH:$PATH
       CONFIG_ARGS+=(
-        --toolchain=msvc
-        --disable-optimizations
-        --arch=$2
-        --target-os=win32
-      )
-    else
-      case $2 in
-        "x86")
-          CROSS_PREFIX=i686-w64-mingw32
-          ;;
-        "x86_64")
-          CROSS_PREFIX=x86_64-w64-mingw32
-          ;;
-        *)
-          exitUnsupport
-      esac
-      CONFIG_ARGS+=(
-        --arch=$2
-        --target-os=mingw32
-        --cross-prefix=$CROSS_PREFIX-
+        --enable-nonfree
+        --enable-cuda-nvcc
+        --enable-libnpp
+        --extra-cflags="-I$CUDA_PATH/include -I../../../mv-codec-headers/include"
+        --extra-ldflags="-libpath:$CUDA_PATH/lib/x64"
       )
     fi
-    ;;
-  "android")
-    case "$OSTYPE" in
-      darwin*)
-        HOST_OS="darwin"
-        ;;
-      msys*)
-        HOST_OS="windows"
-        ;;
-      *)
-        HOST_OS="linux"
-        ;;
-    esac
-    TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST_OS-x86_64"
+    CONFIG_ARGS+=(
+      --toolchain=msvc
+      --disable-cross-compile
+      --arch=$2
+      --target-os=win32
+    )
+  else
     case $2 in
-      "arm")
-        MIN_API=16
-        CC_PREFIX="$TOOLCHAIN/bin/armv7a-linux-androideabi$MIN_API"
-        HOST=arm-linux-androideabi
-        ;;
-      "arm64")
-        MIN_API=21
-        CC_PREFIX="$TOOLCHAIN/bin/aarch64-linux-android$MIN_API"
-        HOST=aarch64-linux-android
-        ;;
-      "x86")
-        MIN_API=16
-        CC_PREFIX="$TOOLCHAIN/bin/i686-linux-android$MIN_API"
-        HOST=i686-linux-android
-        CONFIG_ARGS+=(--disable-asm) # TODO https://trac.ffmpeg.org/ticket/7796
-        ;;
-      "x86_64")
-        MIN_API=21
-        CC_PREFIX="$TOOLCHAIN/bin/x86_64-linux-android$MIN_API"
-        HOST=x86_64-linux-android
-        CONFIG_ARGS+=(--disable-asm) # TODO https://stackoverflow.com/a/57707863
-        ;;
-      *)
-        exitUnsupport
+    "x86")
+      CROSS_PREFIX=i686-w64-mingw32
+      ;;
+    "x86_64")
+      CROSS_PREFIX=x86_64-w64-mingw32
+      ;;
+    *)
+      exitUnsupport
     esac
-    ARCH_ROOT="$ANDROID_NDK_HOME/platforms/android-$MIN_API/arch-$2"
     CONFIG_ARGS+=(
       --arch=$2
-      --target-os=$1
-      --cc=$CC_PREFIX-clang
-      --cxx=$CC_PREFIX-clang++
-      --cross-prefix=$TOOLCHAIN/bin/$HOST-
-      --extra-ldflags="-Wl,-rpath-link=$ARCH_ROOT/usr/lib"
+      --target-os=mingw32
+      --cross-prefix=$CROSS_PREFIX-
     )
+  fi
+  ;;
+"android")
+  case "$OSTYPE" in
+  darwin*)
+    HOST_OS="darwin"
+    ;;
+  msys*)
+    HOST_OS="windows"
+    ;;
+  *)
+    HOST_OS="linux"
+    ;;
+  esac
+  TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST_OS-x86_64"
+  case $2 in
+  "arm")
+    MIN_API=16
+    CC_PREFIX="$TOOLCHAIN/bin/armv7a-linux-androideabi$MIN_API"
+    HOST=arm-linux-androideabi
+    ;;
+  "arm64")
+    MIN_API=21
+    CC_PREFIX="$TOOLCHAIN/bin/aarch64-linux-android$MIN_API"
+    HOST=aarch64-linux-android
+    ;;
+  "x86")
+    MIN_API=16
+    CC_PREFIX="$TOOLCHAIN/bin/i686-linux-android$MIN_API"
+    HOST=i686-linux-android
+    CONFIG_ARGS+=(--disable-asm) # TODO https://trac.ffmpeg.org/ticket/7796
+    ;;
+  "x86_64")
+    MIN_API=21
+    CC_PREFIX="$TOOLCHAIN/bin/x86_64-linux-android$MIN_API"
+    HOST=x86_64-linux-android
+    CONFIG_ARGS+=(--disable-asm) # TODO https://stackoverflow.com/a/57707863
     ;;
   *)
     exitUnsupport
+  esac
+  ARCH_ROOT="$ANDROID_NDK_HOME/platforms/android-$MIN_API/arch-$2"
+  CONFIG_ARGS+=(
+    --arch=$2
+    --target-os=$1
+    --cc=$CC_PREFIX-clang
+    --cxx=$CC_PREFIX-clang++
+    --cross-prefix=$TOOLCHAIN/bin/$HOST-
+    --extra-ldflags="-Wl,-rpath-link=$ARCH_ROOT/usr/lib"
+  )
+  ;;
+*)
+  exitUnsupport
 esac
 
 echo "build ffmpeg for $abi"
@@ -137,5 +146,5 @@ make install
 if [ $1 == "win32" ] && [ $OSTYPE != msys ]; then
   cp /usr/$CROSS_PREFIX/lib/libmingw32.a $builddir/lib/.
   cp /usr/$CROSS_PREFIX/lib/libmingwex.a $builddir/lib/.
-  cp /usr/lib/gcc/$CROSS_PREFIX/$( ls /usr/lib/gcc/$CROSS_PREFIX/ | grep win32 )/libgcc.a $builddir/lib/libgcc.a
+  cp /usr/lib/gcc/$CROSS_PREFIX/$(ls /usr/lib/gcc/$CROSS_PREFIX/ | grep win32)/libgcc.a $builddir/lib/libgcc.a
 fi

@@ -103,8 +103,7 @@ extern "C"
       return -3;
     int frameCount =
         swr_convert(ctx->_swrCtx, &ctx->_audioBuffer1, outCount, (const uint8_t **)frame->extended_data, inCount);
-    ctx->audioBufferSize = av_samples_get_buffer_size(
-        nullptr, ctx->channels, frameCount, (AVSampleFormat)ctx->audioFormat, 0);
+    ctx->audioBufferSize = frameCount * av_get_bytes_per_sample((AVSampleFormat)ctx->audioFormat) * ctx->channels;
     uint8_t *buffer = ctx->_audioBuffer1;
     unsigned int bufferLen = ctx->_audioBufferLen1;
     ctx->_audioBuffer1 = ctx->audioBuffer;

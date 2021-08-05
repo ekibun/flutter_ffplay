@@ -46,7 +46,6 @@ class FFMpegContext extends FormatContext {
   Future pause() async {
     _pts?.playing = false;
     await _playback?.pause();
-    if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
     return Future.value(_playingFuture);
   }
 
@@ -57,7 +56,6 @@ class FFMpegContext extends FormatContext {
   Future close() async {
     await pause();
     await super.close();
-    await _onFrameAdded.close();
     final codecFinals = [..._codecs.values].map((codec) => codec.close());
     _codecs.clear();
     await Future.wait(codecFinals);
@@ -109,7 +107,6 @@ class FFMpegContext extends FormatContext {
   }
 
   Future resume() => _resume(null);
-  final _onFrameAdded = StreamController.broadcast();
 
   Future _resume(Completer<bool>? onNextFrame) async {
     final pts = _pts;
@@ -127,7 +124,7 @@ class FFMpegContext extends FormatContext {
               (f) => f._processing != pts,
               orElse: () => FFMpegFrame._(null));
           if (frame == null || frame._p == null) {
-            await _onFrameAdded.stream.first;
+            await Future.delayed(const Duration(milliseconds: 1));
             continue;
           }
           frame._processing = pts;
@@ -168,14 +165,13 @@ class FFMpegContext extends FormatContext {
           await Future.value(_lastUpdate);
         }
       });
-      var lastDecoTimeStamp = -1;
       var sendingPacket = 0;
       while (true) {
         if (!_isPlaying()) break;
-        if (lastDecoTimeStamp - pts.ptsNow() > 1 * ffi.AV_TIME_BASE ||
-            sendingPacket > 10 ||
+        if (sendingPacket > 10 ||
             _frames.values.fold<int>(0, (sum, a) => sum + a.length) > 100) {
           await Future.delayed(const Duration(milliseconds: 1));
+          continue;
         }
         final packet = await super.getPacket(streams);
         if (packet.address == 0) {
@@ -205,9 +201,7 @@ class FFMpegContext extends FormatContext {
             return;
           }
           frame.timestamp = stream._p.getFramePts(frame._p!);
-          lastDecoTimeStamp = frame.timestamp;
           (_frames[codecType] ??= []).add(frame);
-          if (!_onFrameAdded.isClosed) _onFrameAdded.add(1);
         });
       }
     } finally {
