@@ -18,7 +18,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController _controller = TextEditingController(
-    text: 'http://ivi.bupt.edu.cn/hls/cctv1hd.m3u8',
+    text: 'https://cctvksh5ca.v.kcdnvip.com/clive/cctv1_2/index.m3u8',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
