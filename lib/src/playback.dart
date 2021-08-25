@@ -9,6 +9,9 @@ abstract class Playback {
   int get width => _sw?.ref.width ?? 0;
   int get height => _sw?.ref.height ?? 0;
 
+  double get speedRatio => _sw?.ref.speedRatio ?? 1;
+  set speedRatio(double d) => _sw?.ref.speedRatio = d;
+
   double get aspectRatio {
     final _h = height;
     return _h == 0 ? 1 : width / _h;
@@ -24,6 +27,7 @@ abstract class Playback {
     void Function(int?)? onFrame,
   }) : _onFrame = onFrame {
     final sw = _sw = ffi.mallocSWContext();
+    sw.ref.speedRatio = 1;
     sw.ref.sampleRate = sampleRate;
     sw.ref.channels = channels;
     sw.ref.audioFormat = audioFormat;

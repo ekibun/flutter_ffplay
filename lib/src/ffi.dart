@@ -58,6 +58,8 @@ class AVCodecContext extends Opaque {}
 class AVIOContext extends Opaque {}
 
 class SWContext extends Struct {
+  @Double()
+  external double speedRatio;
   @Int64()
   external int sampleRate;
   @Int64()

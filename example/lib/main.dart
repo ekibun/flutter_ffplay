@@ -18,7 +18,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController _controller = TextEditingController(
-    text: 'https://cctvksh5ca.v.kcdnvip.com/clive/cctv1_2/index.m3u8',
+    text: 'http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4',
   );
   FFMpegContext? _ctx;
   Playback? _playback;
@@ -76,6 +76,7 @@ class _MyAppState extends State<MyApp> {
                         }
                       });
                     });
+                    playback.speedRatio = 0.8;
                     final ctx = _ctx = FFMpegContext(
                       url,
                       ioHandler,
@@ -124,6 +125,15 @@ class _MyAppState extends State<MyApp> {
                 Text(_duration < 0
                     ? parseHHMMSS(_position)
                     : "${parseHHMMSS(_position)}/${parseHHMMSS(_duration)}"),
+                SizedBox(
+                    width: 200,
+                    child: Slider(
+                        value: _playback?.speedRatio ?? 1,
+                        max: 2,
+                        min: 0.5,
+                        onChanged: (pos) {
+                          _playback?.speedRatio = pos;
+                        })),
                 const SizedBox(width: 8),
               ],
             ),

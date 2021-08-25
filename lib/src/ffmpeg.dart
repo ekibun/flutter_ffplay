@@ -12,8 +12,9 @@ class _PTS {
     _absolute = DateTime.now().millisecondsSinceEpoch;
   }
 
-  int ptsNow() =>
+  int ptsNow(double speedRatio) =>
       (DateTime.now().millisecondsSinceEpoch - _absolute) *
+          speedRatio *
           ffi.AV_TIME_BASE ~/
           1000 +
       _relate;
@@ -141,7 +142,7 @@ class FFMpegContext extends FormatContext {
             if (onNextFrame?.isCompleted != false) {
               // wait video
               while (codecType == ffi.AVMediaType.VIDEO &&
-                  frame.timestamp > pts.ptsNow()) {
+                  frame.timestamp > pts.ptsNow(_playback?.speedRatio ?? 1)) {
                 await Future.delayed(const Duration(milliseconds: 1));
                 if (!_isPlaying()) return;
               }
@@ -156,7 +157,7 @@ class FFMpegContext extends FormatContext {
               pts.update(frame.timestamp);
               onNextFrame?.complete(true);
             }
-            _playback?._onFrame?.call(pts.ptsNow());
+            _playback?._onFrame?.call(pts.ptsNow(_playback?.speedRatio ?? 1));
           })()
             ..whenComplete(() {
               _frames[codecType]?.remove(frame);

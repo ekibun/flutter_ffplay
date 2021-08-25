@@ -23,6 +23,7 @@ extern "C"
 
   struct SWContext
   {
+    double speedRatio = 1;
     // audio
     int64_t sampleRate;
     int64_t channels;
@@ -71,10 +72,11 @@ extern "C"
   {
     if (ctx->audioFormat == AV_SAMPLE_FMT_NONE)
       return -1;
+    int sampleRate = round(frame->sample_rate * ctx->speedRatio);
     if (!ctx->_swrCtx ||
         ctx->_srcChannelLayout != frame->channel_layout ||
         ctx->_srcAudioFormat != frame->format ||
-        ctx->_srcSampleRate != frame->sample_rate)
+        ctx->_srcSampleRate != sampleRate)
     {
       if (ctx->_swrCtx)
         swr_free(&ctx->_swrCtx);
@@ -85,15 +87,15 @@ extern "C"
           ctx->sampleRate,
           frame->channel_layout,
           (AVSampleFormat)frame->format,
-          frame->sample_rate, 0, nullptr);
+          sampleRate, 0, nullptr);
       if (!ctx->_swrCtx || swr_init(ctx->_swrCtx) < 0)
         return -1;
       ctx->_srcChannelLayout = frame->channel_layout;
       ctx->_srcAudioFormat = (AVSampleFormat)frame->format;
-      ctx->_srcSampleRate = frame->sample_rate;
+      ctx->_srcSampleRate = sampleRate;
     }
     int inCount = frame->nb_samples;
-    int outCount = inCount * ctx->sampleRate / frame->sample_rate + 256;
+    int outCount = inCount * ctx->sampleRate / sampleRate + 256;
     int outSize = av_samples_get_buffer_size(
         nullptr, ctx->channels, outCount, (AVSampleFormat)ctx->audioFormat, 0);
     if (outSize < 0)
