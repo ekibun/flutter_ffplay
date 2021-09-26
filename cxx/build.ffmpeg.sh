@@ -40,7 +40,6 @@ case $1 in
       CONFIG_ARGS+=(
         --enable-nonfree
         --enable-cuda-nvcc
-        --enable-libnpp
         --extra-cflags="-I$CUDA_PATH/include -I../../../mv-codec-headers/include"
         --extra-ldflags="-libpath:$CUDA_PATH/lib/x64"
       )
