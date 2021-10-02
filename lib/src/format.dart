@@ -46,8 +46,10 @@ class FormatContext {
         var packetAddr = 0;
         while (ctx.getPacket(packet) == 0) {
           final streamIndex = packet.value.streamIndex;
-          final stream = streams.indexWhere((s) => s.index == streamIndex);
-          if (stream < 0) continue;
+          if (streams.isNotEmpty) {
+            final stream = streams.indexWhere((s) => s.index == streamIndex);
+            if (stream < 0) continue;
+          }
           packetAddr = packet.value.address;
           break;
         }

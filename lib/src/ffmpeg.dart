@@ -188,6 +188,12 @@ class FFMpegContext extends FormatContext {
         }
         sendingPacket++;
         final streamIndex = packet.streamIndex;
+        // for downloading
+        if (pts.streams.isEmpty) {
+          packet.close();
+          sendingPacket--;
+          continue;
+        }
         final stream =
             pts.streams.values.firstWhere((s) => s.index == streamIndex);
         final codecType = stream.codecType;
