@@ -4,7 +4,7 @@ abstract class Playback {
   Pointer<ffi.SWContext>? _sw;
   final int textureId;
   final int audioBufferTime;
-  final void Function(int?)? _onFrame;
+  void Function(int?)? _onFrame;
 
   int get width => _sw?.ref.width ?? 0;
   int get height => _sw?.ref.height ?? 0;
@@ -129,8 +129,10 @@ class _PlaybackImpl extends Playback {
 
   @override
   Future<int> flushAudioBuffer(Pointer<Uint8> buffer, int length) async {
+    final ctx = _ctx;
+    if (ctx == null) return -1;
     return await _channel.invokeMethod("flushAudioBuffer", {
-      "ctx": _ctx!,
+      "ctx": ctx,
       "buffer": buffer.address,
       "length": length,
     });
@@ -139,8 +141,10 @@ class _PlaybackImpl extends Playback {
   @override
   Future flushVideoBuffer(
       Pointer<Uint8> buffer, int length, int width, int height) async {
+    final ctx = _ctx;
+    if (ctx == null) return -1;
     return await _channel.invokeMethod("flushVideoBuffer", {
-      "ctx": _ctx!,
+      "ctx": ctx,
       "buffer": buffer.address,
       "length": length,
       "width": width,
@@ -150,22 +154,28 @@ class _PlaybackImpl extends Playback {
 
   @override
   Future pause() {
+    final ctx = _ctx;
+    if (ctx == null) return Future.value();
     return _channel.invokeMethod("pause", {
-      "ctx": _ctx!,
+      "ctx": ctx,
     });
   }
 
   @override
   Future resume() {
+    final ctx = _ctx;
+    if (ctx == null) return Future.value();
     return _channel.invokeMethod("resume", {
-      "ctx": _ctx!,
+      "ctx": ctx,
     });
   }
 
   @override
   Future stop() {
+    final ctx = _ctx;
+    if (ctx == null) return Future.value();
     return _channel.invokeMethod("stop", {
-      "ctx": _ctx!,
+      "ctx": ctx,
     });
   }
 
@@ -173,10 +183,11 @@ class _PlaybackImpl extends Playback {
   Future close() async {
     await super.close();
     final ctx = _ctx;
+    _onFrame = null;
     _ctx = null;
     if (ctx == null) return;
     await _channel.invokeMethod("close", {
-      "ctx": _ctx!,
+      "ctx": ctx,
     });
   }
 }
